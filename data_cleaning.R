@@ -422,22 +422,89 @@ library(extrafont) ## for ggplot2
       occur <- occur[,c(1:11, 173:323)] #leave off 12:172 (all GBIF)
       occur$gbif_info <- 'see GBIF download for details'
     
-    ## Find duplicates. NRM/ORBIC don't have the same. Use date and coord:
+    ## Find duplicates. NRM/ORBIC don't have the same OBJECTID. Use date and coord:
       dups <- duplicated(occur[ , c('lat', 'lon', 'date')])    
       dups.occur <- occur[dups,]      
       table(dups.occur$source)
       
     ## Remove duplicates from NRM and ORBIC, but not WSDOT (actually it's only 5, doesn't matter...)
-      occur.nodups <- occur[!duplicated(occur[, c('lon', 'lat', 'date')]),]
-      nrow(occur.nodups)
+      final.occur <- data.frame(occur[!duplicated(occur[, c('lon', 'lat', 'date')]),])
+      nrow(final.occur)
       
-      table(occur.nodups$source)      
-      table(occur.nodups$type) # consolidate a few:
+      table(final.occur$source)      
+      table(final.occur$type) # consolidate a few:
       
-        occur.nodups$type[occur.nodups$type == 'tracks'] <- 'sign'
-        occur.nodups$type[occur.nodups$type == 'other'] <- 'unknown'
+        final.occur$type[final.occur$type == 'tracks'] <- 'sign'
+        final.occur$type[final.occur$type == 'other'] <- 'unknown'
         
     ## make SPDF
-       
+      occur.spdf <- SpatialPointsDataFrame(data.frame(final.occur$lon, final.occur$lat), data = final.occur)
+      occur.spdf@proj4string <- aoi@proj4string
+      
+    ## overlay county
+      counties <- readOGR(dsn = 'shapefiles/admin', layer = 'OR_WA_counties_cb2017_500k', verbose = TRUE)
+      proj4string(counties) <- proj4string(occur.spdf)
+      occur.spdf$county <- over(occur.spdf, counties)$NAME 
+      table(occur.spdf$county)
+      
     ## crop to AOI
+
+      plot(aoi)
+      points(occur.spdf, col = 'red', pch = 19)
+      
+        outside <- occur.spdf[aoi,]
+        points(outside, pch = 19)      
+        nrow(outside)      
+      
+        ## it excluded 10 points that are on the coast, just b/c the AOI shapefile is pretty coarse
+        ## so don't actually get rid of any here.
+
+    ## final output
+        
+      writeOGR(occur.spdf, dsn = '.', layer = 'shapefiles/observations/orwa_occur_052218', driver = 'ESRI Shapefile')
+      write.csv(occur.spdf@data, "spreadsheets/orwa_occur_052218.csv")
+        
+        
+##################################################
+        
+    ## Summarize observations
+        
+    ## by source
+        table(final.occur$source)
+        table(final.occur$source2)
+        
+    ## by type
+        table(final.occur$type)
+        table(final.occur$type_gbif)        
+
+    ## matrix (source and type)
+        matrix <- table(final.occur$type, final.occur$source)
+        write.csv(matrix, 'spreadsheets/source_type_matrix_052218.csv')
+     
+    ## make a histogram by decade
+        hist(final.occur$year)
+        cols <- c('#67001F', '#B2182B', '#D6604D', '#F4606D', '#FDDBC7', '#F7F7F7', '#D1E5F0', '#92C5DE',
+                  '#4393C3', '#2166AC', '#053061', '#001233') ## match colors to map
+        
+        font_import(pattern = '[A/a]rial')
+        font_import(pattern = '[T/t]imes')
+        loadfonts(device = 'win')
+        
+        ggplot(final.occur, aes(decade, fill = decade)) + geom_bar(colour = 'black') + 
+          labs(x = 'Decade', y = 'Number of records') +
+          scale_fill_manual(values = cols) +
+          theme(axis.text = element_text(size = 12, colour = 'black', family = 'Arial'),
+                axis.text.x = element_text(angle = 50, hjust = 1),
+                axis.title = element_text(size = 14, colour = 'black', family = 'Arial'),
+                axis.line.x = element_line(size = 1, colour = 'black'),
+                axis.line.y = element_line(size = 1, colour = 'black'),
+                axis.ticks = element_line(size = 0.5, colour = 'black'),
+                axis.ticks.length = unit(.2, 'cm'),
+                panel.background = element_rect(fill = 'white'),
+                legend.position = 'none')
+
+              ## not very useful b/c of overwhelming n from 2010s (WSDOT roadkill all from >= 2014)
+              ## just present as a table instead (or indicate sample size in map figure)
+        
+        table(final.occur$decade)
        
