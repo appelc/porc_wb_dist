@@ -9,19 +9,16 @@ library(prism)
 ## 1. LOAD PRESENCE POINTS
 
     ## occurrence records (OR/WA and northern CA):
-      porc_occur_orwa <- readOGR(dsn = './shapefiles/observations', layer = 'orwa_occur_052218')
+      porc_occur_orwa <- readOGR(dsn = './shapefiles/observations', layer = 'orwa_occur_060618')
       porc_occur_nca <- readOGR(dsn = './shapefiles/observations', layer = 'nca_occur_013117')
-        porc_occur_nca <- spTransform(porc_occur_nca, CRS('+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0'))
-        porc_occur_nca@proj4string <- porc_occur_orwa@proj4string    
+      porc_occur_nca <- spTransform(porc_occur_nca, CRS('+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0'))
     
     ## wood block detections:
       porc_wb <- readOGR(dsn = './shapefiles/observations', layer = 'porc_wb_pts')  
-        porc_wb <- spTransform(porc_wb, CRS('+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0'))
-        porc_wb@proj4string <- porc_occur@proj4string
+      porc_wb <- spTransform(porc_wb, CRS('+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0'))
     
     ## combine:
       porcs <- bind(porc_occur_orwa, porc_occur_nca, porc_wb)
-    
       
 ## 2. GENERATE BACKGROUND POINTS WITHIN STUDY AREA
   
@@ -76,7 +73,17 @@ library(prism)
           lc <- crop(land_cover, ppt)   ## need to be same projection   
           lc <- projectRaster(land_cover, ppt) ## too big. should I re-project in ArcMap too?
             
-  ## extract raster values
+          
+    ## d. fisher population polygons
+          
+          fisher <- readOGR(dsn = './shapefiles/fisher/commondata/usfws_ranges_sep2015', 
+                            layer = 'West_Coast_fisher_populations')
+          fisher <- spTransform(fisher, CRS(''))
+        ## finish
+          
+          plot(fisher)
+  
+    ## extract raster values
 
       sp.all.pts$water_dist <- extract(water_dist, sp.all.pts)
       sp.all.pts$ppt_annual <- extract(ppt_annual, sp.all.pts)
