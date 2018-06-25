@@ -7,7 +7,8 @@
 # 4. ORBIC records (OSU / NatureServe)
 # 5. NRM/NRIS (US Forest Service)
 # 6. BISON (USGS) *skip*
-# 7. GBIF
+# 7. Conservation Northwest CWMP
+# 8. GBIF
 
 library(googlesheets)
 library(rgdal) 
@@ -22,8 +23,8 @@ library(extrafont) ## for ggplot2
 
 ## load Oregon/Washington shapefile (area of interest) in lat/lon WGS84
 
-    aoi <- readOGR(dsn = "./shapefiles/admin", layer = 'OR_WA_boundary')
-    aoi <- spTransform(aoi, CRS('+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0'))
+    aoi <- readOGR(dsn = "./shapefiles/admin", layer = 'OR_WA_NCA_boundary')
+#    aoi <- spTransform(aoi, CRS('+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0'))
 
 
 #######################################################
@@ -155,23 +156,23 @@ library(extrafont) ## for ggplot2
     misc$date <- as.POSIXct(strptime(misc$date, '%m/%d/%Y'), tz = 'America/Los_Angeles')
     misc$year <- year(misc$date)
     
-      ## only keep approved / relevant ones
+    ## only keep approved / relevant ones
       misc <- misc[misc$include == 'y' & !is.na(misc$include),] #eventually all should be y/n; remove the 'NA' part 
       
-      ## clean up a little
+    ## clean up a little
       misc$source2 <- misc$source
       misc$source <- rep('MISC', nrow(misc))
       misc$id <- paste('MISC', 1:nrow(misc), sep = '')
       misc$utm_zone <- as.character(misc$utm_zone)
       
-      ## add decade
+    ## add decade
       misc$decade <- paste((misc$year - misc$year %% 10), 's', sep = '')
       
-      ## reorder
+    ## reorder
       misc <- misc[,c('source', 'id', 'type', 'date', 'year', 'decade', 'lat', 'lon', 'location', 'observer', 'utm_e', 'utm_n', 'county', 'source2', 'info',
                       'utm_zone', 'geotagged', 'accuracy..m.','link', 'proj_notes', 'proj_notes2', 'reply', 'include')]
       
-      ## separate to UTM zone 10N / zone 11N (e.g., misc_10n <- misc[misc$utm_zone == '10',]) or just use lat/lon
+    ## separate to UTM zone 10N / zone 11N (e.g., misc_10n <- misc[misc$utm_zone == '10',]) or just use lat/lon
 
       misc.spdf <- SpatialPointsDataFrame(data.frame(misc$lon, misc$lat), data = data.frame(misc))
       misc.spdf@proj4string <- aoi@proj4string                                     
@@ -179,8 +180,8 @@ library(extrafont) ## for ggplot2
       plot(aoi)
       points(misc.spdf, col = 'red')
       
-      writeOGR(misc.spdf, dsn = '.', layer = 'shapefiles/observations/misc_cleaned_051718', driver = 'ESRI Shapefile')
-      write.csv(misc.spdf@data, 'spreadsheets/misc_cleaned_051718.csv')
+      writeOGR(misc.spdf, dsn = '.', layer = 'shapefiles/observations/misc_cleaned_060618', driver = 'ESRI Shapefile')
+      write.csv(misc.spdf@data, 'spreadsheets/misc_cleaned_060618.csv')
       
 
 #######################################################
@@ -329,22 +330,62 @@ library(extrafont) ## for ggplot2
 
 #######################################################
       
-## 7. load GBIF
+## 7. load Conservation Northwest (CNW) Citizen Wildlife Monitoring Program (CWMP) camera records
+      
+      gs_ls()
+      cwmp <- gs_title('CWMP Porcupine event export')
+      
+      cwmp <- data.frame(gs_read(ss=cwmp, ws='List View', is.na(TRUE), range=cell_cols(1:8)))
+      colnames(cwmp) <- c('camera', 'location', 'species', 'date', 'caption', 'lat', 'lon', 'lure')
+      
+    ## format date, etc.  
+      cwmp$date <- as.POSIXct(strptime(cwmp$date, '%m/%d/%y'), tz = 'America/Los_Angeles')
+      cwmp$year <- year(cwmp$date)
+      
+      cwmp$source <- rep('CWMP', nrow(cwmp))
+      cwmp$id <- paste('CWMP', 1:nrow(cwmp), sep = '')
+      cwmp$type <- rep('camera', nrow(cwmp))
+      
+    ## add decade
+      cwmp$decade <- paste((cwmp$year - cwmp$year %% 10), 's', sep = '')
+      
+    ## reorder columns
+      cwmp <- cwmp[,c(10:12, 4, 9, 13, 6:7, 2, 1, 3, 5, 8)]
+      
+    ## create SPDF, plot, export
+      cwmp.spdf <- SpatialPointsDataFrame(data.frame(cwmp$lon, cwmp$lat), data = data.frame(cwmp))
+      cwmp.spdf@proj4string <- aoi@proj4string                                     
+      
+      plot(aoi)
+      points(cwmp.spdf)
+      
+      writeOGR(cwmp.spdf, dsn = '.', layer = 'shapefiles/observations/cwmp_cleaned_060618', driver = 'ESRI Shapefile')
+      write.csv(cwmp.spdf@data, 'spreadsheets/cwmp_cleaned_060618.csv')
+      
+  ## these 5 records include 3 detections at the same camera from different dates (within ~3 months)
+  ## and 2 detections at other cameras
+      
+#######################################################
+      
+## 8. load GBIF
       
     ## download ERDO occurrences from GBIF
       
       sp.occur <- gbif(genus = 'Erethizon', species = '', geo=TRUE) ## 6104 records found
-      write.csv(sp.occur, 'spreadsheets/gbif-all-4april18.csv', row.names=FALSE)
+      write.csv(sp.occur, 'spreadsheets/gbif-all-20june18.csv', row.names=FALSE)
       
+    #sp.occur <- read.csv('spreadsheets/gbif-all-20june18.csv')  ## the exact download we used
+    
       sp.occur <- subset(sp.occur, !is.na(sp.occur$lat))  ## exclude ones w/ no coordinates
       sp.occur.spdf <- SpatialPointsDataFrame(data.frame(sp.occur$lon, sp.occur$lat), 
                                               data = sp.occur)
       sp.occur.spdf@proj4string <- aoi@proj4string
       
     ## crop to just OR & WA:
-      sp.occur.spdf$state <- over(sp.occur.spdf, aoi)$STATE_NAME # add state names using spatial overlay
-        plot(aoi)  
-        points(sp.occur.spdf)      # make sure those with state = NA are actually outside OR/WA 
+      aoi2 <- readOGR(dsn = "./shapefiles/admin", layer = 'OR_WA_boundary')
+      sp.occur.spdf$state <- over(sp.occur.spdf, aoi2)$NAME # add state names using spatial overlay
+        plot(aoi2)  
+        points(sp.occur.spdf)  # make sure those with state = NA are actually outside OR/WA 
         points(sp.occur.spdf[is.na(sp.occur.spdf@data$state),], col = 'green') 
       
     ## good, we included ones on the coast. now remove those outside OR/WA
@@ -376,26 +417,29 @@ library(extrafont) ## for ggplot2
         gbif.pts$type[gbif.pts$basisOfRecord == 'MACHINE_OBSERVATION'] <- 'sign' #there is one sound recording! (call it 'audio'?)
       
     ## change any manually? 
-      #View(gbif.pts[,c(9,82,94,107,116,117,132,158,159,164,166:169)])
-        gbif.pts$type[gbif.pts$id == 'GBIF3' | gbif.pts$id == 'GBIF4' | gbif.pts$id == 'GBIF7' | gbif.pts$id == 'GBIF21'] <- 'roadkill'
-        gbif.pts$type[gbif.pts$id == 'GBIF17'| gbif.pts$id == 'GBIF22' | gbif.pts$id == 'GBIF23' | gbif.pts$id == 'GBIF24' | gbif.pts$id == 'GBIF25'| gbif.pts$id == 'GBIF27'] <- 'sign'
+     #View(gbif.pts[,c(9,82,94,107,116,117,132,158,159,164,166:169)])
+      View(gbif.pts[,c(9,87,122,126,139,158,164,172,175,176)])
+        gbif.pts$type[gbif.pts$id == 'GBIF4' | gbif.pts$id == 'GBIF5' | gbif.pts$id == 'GBIF8' | gbif.pts$id == 'GBIF22'] <- 'roadkill'
+        gbif.pts$type[gbif.pts$id == 'GBIF18'| gbif.pts$id == 'GBIF23' | gbif.pts$id == 'GBIF24' | gbif.pts$id == 'GBIF25' | gbif.pts$id == 'GBIF26'| gbif.pts$id == 'GBIF28'] <- 'sign'
 
     ## look up original source of ones w/o dates (all ARCTOS or VERTNET) & remove if no date
-      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF104',] # date is ambiguous; 1800 or 2017? (Bellevue, WA -- interesting)
-      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF105',] # no date; correct URL is http://portal.vertnet.org/o/psm/mammal?id=urn-catalog-psm-mammal-mammal-26341
-      gbif.pts$year[gbif.pts$id == 'GBIF106'] <- '1931'
-      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF107',] # no date
-      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF108',] # no date (Mt. Rainier, Ohanapecosh)
-      gbif.pts$year[gbif.pts$id == 'GBIF109'] <- '1980' # date is 1980-90 but decade will be 1980s regardless
-      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF110',] # no date (Mt. Rainier, Crystal Mt.)
-      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF111',] # no date 
+      gbif.pts$year[gbif.pts$id == 'GBIF90'] <- '1977' #per Burke Museum mammalogy collection website (accession 197769)
+        gbif.pts$date[gbif.pts$id == 'GBIF90'] <- '1977-10-01' #day is unknown (BM uses '1977-10-99') but POSIX won't allow 99
+      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF91',] # no date; correct URL is http://portal.vertnet.org/o/psm/mammal?id=urn-catalog-psm-mammal-mammal-26341
+      gbif.pts$year[gbif.pts$id == 'GBIF92'] <- '1931'
+      gbif.pts <- gbif.pts[gbif.pts$id != 'GBIF93',] #no date
+      gbif.pts$year[gbif.pts$id == 'GBIF94'] <- '1976' #per Burke Museum mammalogy collection website (accession 197871)
+        gbif.pts$date[gbif.pts$id == 'GBIF94'] <- '1976-08-01' #day is unknown (BM uses '1976-08-99') but POSIX won't allow 99
+      gbif.pts$year[gbif.pts$id == 'GBIF95'] <- '1980' #date is 1980-90 but decade will be 1980s regardless
+      gbif.pts$year[gbif.pts$id == 'GBIF96'] <- '2011' #per Burke Museum mammalogy collection website (accession 201102)
+        gbif.pts$date[gbif.pts$id == 'GBIF96'] <- '2011-06-01' #day is unknown (BM uses '2011-06-99') but POSIX won't allow 99
       
     ## add decade 
       gbif.pts$year <- as.numeric(gbif.pts$year)
       gbif.pts$decade <- paste((gbif.pts$year - gbif.pts$year %% 10), 's', sep = '')
       
     ## reorder
-      gbif.pts <- gbif.pts[,c(169,170,153,167,164,172,94,107,168,171,166,1:93,95:106,108:152,154:163,165)]
+      gbif.pts <- gbif.pts[,c(174:175,158,172,169,177,99,112,173,176,171,1:98,100:111,113:157,159:168,170)]
 
     ## export as shapefile & CSV
       gbif.spdf <- SpatialPointsDataFrame(data.frame(gbif.pts$lon, gbif.pts$lat), data = gbif.pts)
@@ -405,21 +449,21 @@ library(extrafont) ## for ggplot2
       
       # names(gbif.spdf) <- strtrim(names(points),10)        
       
-      writeOGR(gbif.spdf, dsn = '.', layer = 'shapefiles/observations/GBIF_051818', driver = 'ESRI Shapefile')
-      write.csv(gbif.pts, "spreadsheets/gbif-subset-18may2018-cleaned.csv")
+      writeOGR(gbif.spdf, dsn = '.', layer = 'shapefiles/observations/GBIF_062218', driver = 'ESRI Shapefile')
+      write.csv(gbif.pts, "spreadsheets/gbif-subset-22june2018-cleaned.csv")
 
       
 ##################################################
       
 ## Combine all into one dataframe
 
-    occur <- bind_rows(gbif.pts, nrm, orbic, wsdot, odot, misc) #order in which I want to keep if duplicates
+    occur <- bind_rows(gbif.pts, nrm, orbic, wsdot, odot, misc, cwmp) #order in which I want to keep if duplicates
     nrow(occur)
     
     table(occur$source)
           
     ## Rearrange
-      occur <- occur[,c(1:11, 173:323)] #leave off 12:172 (all GBIF)
+      occur <- occur[,c(1:11, 178:332)] #leave off colunms 12:177 (all GBIF)
       occur$gbif_info <- 'see GBIF download for details'
     
     ## Find duplicates. NRM/ORBIC don't have the same OBJECTID. Use date and coord:
@@ -427,7 +471,7 @@ library(extrafont) ## for ggplot2
       dups.occur <- occur[dups,]      
       table(dups.occur$source)
       
-    ## Remove duplicates from NRM and ORBIC, but not WSDOT (actually it's only 5, doesn't matter...)
+    ## Remove duplicates from NRM and ORBIC, but not WSDOT (actually it's only 5, probably OK)
       final.occur <- data.frame(occur[!duplicated(occur[, c('lon', 'lat', 'date')]),])
       nrow(final.occur)
       
@@ -447,22 +491,27 @@ library(extrafont) ## for ggplot2
       occur.spdf$county <- over(occur.spdf, counties)$NAME 
       table(occur.spdf$county)
       
+    ## overlay state
+      counties@data$STATE <- rep(NA, nrow(counties@data))
+        counties@data$STATE[counties$STATEFP == 41] <- 'Oregon'
+        counties@data$STATE[counties$STATEFP == 53] <- 'Washington'
+      occur.spdf$state <- over(occur.spdf, counties)$STATE
+      table(occur.spdf$state)
+      
     ## crop to AOI
-
       plot(aoi)
       points(occur.spdf, col = 'red', pch = 19)
       
         outside <- occur.spdf[aoi,]
         points(outside, pch = 19)      
-        nrow(outside)      
-      
-        ## it excluded 10 points that are on the coast, just b/c the AOI shapefile is pretty coarse
-        ## so don't actually get rid of any here.
+        nrow(outside)     ## good, looks like they are all inside AOI; don't need to crop
+        
+    ## convert back to dataframe
+        final.occur <- data.frame(occur.spdf)
 
     ## final output
-        
-      writeOGR(occur.spdf, dsn = '.', layer = 'shapefiles/observations/orwa_occur_052218', driver = 'ESRI Shapefile')
-      write.csv(occur.spdf@data, "spreadsheets/orwa_occur_052218.csv")
+      writeOGR(occur.spdf, dsn = '.', layer = 'shapefiles/observations/orwa_occur_062218', driver = 'ESRI Shapefile')
+      write.csv(occur.spdf@data, "spreadsheets/orwa_occur_062218.csv")
         
         
 ##################################################
@@ -479,8 +528,11 @@ library(extrafont) ## for ggplot2
 
     ## matrix (source and type)
         matrix <- table(final.occur$type, final.occur$source)
-        write.csv(matrix, 'spreadsheets/source_type_matrix_052218.csv')
-     
+        write.csv(matrix, 'spreadsheets/source_type_matrix_062218.csv')
+
+    ## matrix (source and state)
+        matrix2 <- table(final.occur$source, final.occur$state)
+             
     ## make a histogram by decade
         hist(final.occur$year)
         cols <- c('#67001F', '#B2182B', '#D6604D', '#F4606D', '#FDDBC7', '#F7F7F7', '#D1E5F0', '#92C5DE',
