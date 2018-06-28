@@ -1,0 +1,132 @@
+## Porcupine SDM using occurrence records from Oregon and Washington
+## Predictor import/manipulation on v-lab
+
+## First: download 'shapefiles' and 'LEMMA' folders from Google Drive to a local folder
+## (set as working diretory)
+
+setwd('C:/Users/cla236/Documents/cla236_temp')
+
+library(rgdal) 
+library(raster)
+install.packages('prism')
+library(prism)
+
+## 6/27/18: I used tools in ArcMap to project and resample/aggregate the rasters already:
+##          Resample (for categorical, using 'majority')
+##          Aggregate (for continuous, using either 'median' or 'min' -- see notes)
+##    Ideally this would all be done in R, but I wanted cell sizes/alignment to be the same,
+##    and I can set cell size, projection, and snap raster in the ArcMap processing environment
+
+## 1. IMPORT RESAMPLED RASTERS (the ones that were resampled instead of aggregated still need
+##      to be cropped; fix that in ArcMap?)
+
+      ppt <- raster('vlab_shapefiles/ppt_80m_clip')
+      rivers_agg <- raster('vlab_shapefiles/aggregated/rivers_agg')
+      cancovcon_agg <- raster('vlab_shapefiles/aggregated/cancovcon_agg')
+      cancovhdw_agg <- raster('vlab_shapefiles/aggregated/cancovhdw_agg')
+      conplba_res <- raster('vlab_shapefiles/aggregated/conplba_res')      
+        conplba_res <- crop(conplba_res, ppt)
+      fortypba_res <- raster('vlab_shapefiles/aggregated/fortypba_res')
+        fortypba_res <- crop(fortypba_res, ppt)
+      hdwplba_res <- raster('vlab_shapefiles/aggregated/hdwplba_res')
+        hdwplba_res <- crop(hdwplba_res, ppt)
+      struccond_res <- raster('vlab_shapefiles/aggregated/struccond_res')
+        struccond_res <- crop(struccond_res, ppt)
+      tphge3_agg <- raster('vlab_shapefiles/aggregated/tphge3_agg')
+      vcmndbha_res <- raster('vlab_shapefiles/aggregated/vcmndbha_res')
+        vcmndbha_res <- crop(vcmndbha_res, ppt)
+      vegclass_res <- raster('vlab_shapefiles/aggregated/vegclass_res')
+        vegclass_res <- crop(vegclass_res, ppt)
+      nlcd2011_res <- raster('vlab_shapefiles/aggregated/nlcd2011_res')
+        nlcd2011_res <- crop(nlcd2011_res, ppt)
+
+    predictors <- stack(ppt, rivers_agg, cancovcon_agg, cancovhdw_agg, conplba_res,
+                        fortypba_res, hdwplba_res, struccond_res, tphge3_agg, vcmndbha_res,
+                        vegclass_res, nlcd2011_res)
+    nlayers(predictors)
+    names(predictors)
+    plot(predictors[[2]])
+
+
+## 2. EXTRACT RASTER VALUES
+    
+    
+
+## 1. LOAD PREDICTORS
+
+      ## a. distance to water (Euclidean Distance raster calculated from TIGER lines in ArcMap)
+      
+        water <- raster('shapefiles/ORWANCAIDNV_riv.tif')
+      
+        
+      ## b. PRISM climate data
+      
+        options(prism.path = 'shapefiles/prism')
+        get_prism_normals(type = 'ppt', resolution = '800m', annual = TRUE, keepZip = FALSE)            
+        
+        ppt <- prism_stack(ls_prism_data()[1,1]) ##raster file of data
+       
+        #ppt <- raster('shapefiles/prism/PRISM_ppt_30yr_normal_800mM2_annual_bil.bil')
+        
+
+      ## c. NLCD data (already clipped w/ 200-km buffer and projected)
+      
+        nlcd <- raster('vlab_shapefiles/nlcd2011_proj')
+        
+      
+      ## d. LEMMA data
+        
+        vegclass <- raster('vlab_shapefiles/LEMMA_proj/vegclass')
+            
+        cancov_con <- raster('vlab_shapefiles/LEMMA_proj/cancov_con')
+            
+        cancov_hdw2 <- raster('vlab_shapefiles/LEMMA_proj/cancov_hdw2')
+        
+        conpbla <- raster('vlab_shapefiles/LEMMA_proj/conpbla')
+            
+        fortypba <- raster('vlab_shapefiles/LEMMA_proj/fortypba')
+        
+        hdwplba <- raster('vlab_shapefiles/LEMMA_proj/hdwplba')
+        
+        
+
+## 2. AGGREGATE/RESAMPLE AND STACK RASTERS    
+        
+      ## crop to same extent (the LEMMA and NLCD layers are the most limiting extent-wise)
+        
+        water_crop <- crop(water, vegclass)
+        ppt_crop <- crop(ppt, vegclass)
+        nlcd_crop <- crop()
+        
+      ## aggregate to same resolution (PRISM is the most limiting, 800-m)
+       
+        cell <- res(ppt_crop) ## desired cell size for the rest of the rasters
+        
+        ## calculate aggregate factors (current # columns / desired new # columns) 
+        ## where desired # columns = (range of x extent) / (desired resolution)
+        ## and same for rows (with y extent)
+        
+          water_f1 <- (dim(water)[2]) / (diff(range(water@extent[1:2]))/cell) 
+          water_f2 <- (dim(water)[1])/(diff(range(water@extent[3:4]))/cell)
+          
+          water_fac <- floor(cell/res(water)) ## round down; this is why I also need 'resample'
+        
+          ## but they need to be whole numbers for aggregate()
+        
+          water_agg <- aggregate(water_crop, fact = water_fac, fun = mean, expand = TRUE)
+        
+        
+        
+        
+        
+## 3. EXTRACT RASTER VALUES
+      
+      sp.all.pts$water_dist <- extract(water_dist, sp.all.pts)
+      sp.all.pts$ppt_annual <- extract(ppt_annual, sp.all.pts)
+      sp.all.pts$ppt_annual <- as.numeric(sp.all.pts$ppt_annual) ## why is it a matrix?
+      
+
+## simplify dataframe (pres, predictor values)
+
+cur.data <- data.frame(sp.all.pts@data[,c(1,4:5)])
+
