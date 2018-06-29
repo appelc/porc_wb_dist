@@ -2,13 +2,14 @@
 ## Predictor import/manipulation on v-lab computer
 
 ## First, download 'vlap_shapefiles.zip' and 'shapefiles.zip' folders from Google Drive to a 
-##        local folder which has been set as the working diretory:
+##        local folder which has been set as the working directory:
 
 setwd('C:/Users/cla236/Documents/cla236_temp')
 
 library(rgdal) 
 library(raster)
-
+install.packages('spThin')
+library(spThin)
 
 ## 6/27/18: I used tools in ArcMap to project and resample/aggregate the rasters already:
 ##          Resample (for categorical, using 'majority')
@@ -56,19 +57,20 @@ library(raster)
 
 ## 2. LOAD PRESENCE POINTS
       
-     ## occurrence records (OR/WA and northern CA):
+    ## occurrence records (OR/WA and northern CA):
       porc_occur_orwa <- readOGR(dsn = './shapefiles/observations', layer = 'orwa_occur_062218')
       porc_occur_nca <- readOGR(dsn = './shapefiles/observations', layer = 'nca_occur_013117')
         porc_occur_nca <- spTransform(porc_occur_nca, CRS('+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0'))
       
-     ## wood block detections:
-      porc_wb <- readOGR(dsn = './shapefiles/wood blocks', layer = 'all_wb_062518')  
-      porc_wb <- spTransform(porc_wb, CRS('+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0'))
-      
+    ## wood block detections:
+      porc_wb <- readOGR(dsn = './shapefiles/wood blocks', layer = 'porc_wb_062518')  
+        porc_wb <- spTransform(porc_wb, CRS('+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0'))
+        porc_wb@data$source <- rep('wood_block', nrow(porc_wb@data))
+    
     ## combine:
       porcs <- bind(porc_occur_orwa, porc_occur_nca, porc_wb)
-      
-
+    
+    
 ## 3. GENERATE BACKGROUND POINTS WITHIN STUDY AREA
       
       aoi <- readOGR(dsn = './shapefiles/admin', layer = 'OR_WA_NCA_dissolved')
@@ -76,24 +78,67 @@ library(raster)
       
     ## COMBINE PRESENCE/BACKGROUND POINTS
       
+      bg.pts <- as.data.frame(bg.pts)
+      bg.pts$pres <- rep(0, nrow(bg.pts)) # 0 = background
+      
       porc.pts <- as.data.frame(porcs)
       porc.pts$pres <- rep(1, nrow(porc.pts)) # 1 = presence
       porc.pts <- porc.pts[,c('pres', 'coords.x1', 'coords.x2')]
       colnames(porc.pts) <- c('pres', 'x', 'y')
       
-      bg.pts <- as.data.frame(bg.pts)
-      bg.pts$pres <- rep(0, nrow(bg.pts)) # 0 = background
+      ## Remove duplicates. Previously we only removed dups with same date. (Observations at 
+      ## same location but different date were treated as independent observations.) But now
+      ## we need to remove all dups (n = 40):
+        
+        porc.pts <- data.frame(porc.pts[!duplicated(porc.pts[, c('x', 'y')]),])
+        nrow(porc.pts)
+        
+      ## combine:
       
       all.pts <- rbind(porc.pts, bg.pts)
         head(all.pts)
-        table(all.pts$pres) # 10000 bg, 1612 pres
+        table(all.pts$pres) # 10000 bg, 1293 pres
       
     ## convert back to SPDF
       sp.all.pts <- SpatialPointsDataFrame(data.frame(all.pts$x, all.pts$y), data = all.pts, 
                                            proj4string = porcs@proj4string)
 
 
+## 5. THIN POINTS
+      
+    ## thin bg points or just pres pts?
+      head(bg.pts)
+      dist.bg <- dist(bg.pts[,1:2])    
+      summary(dist.bg)
+  
+      head(porc.pts)
+      dist <- dist(porc.pts[,2:3]) 
+      summary(dist) ## similar median distance for pres/bg points (~4) -- units are lat/lon?
+      
+    ## how to find best thinning distance? look at semivariograms? how do I make those?
+       
+    ## try 10 reps with thin parameter = 0.8 km (800 m)
+      thinning <- thin(porc.pts, lat.col = 'y', long.col = 'x', spec.col = 'pres',
+                       thin.par = 0.8, reps = 10, locs.thinned.list.return = TRUE,
+                       write.files = TRUE, max.files = 5, out.dir = 'vlab_files/',
+                       out.base = 'porc_thinned', write.log.file = TRUE, 
+                       log.file = 'porc_thinned_full_log_file.txt', verbose = TRUE)
 
+      plotThin(thinning) ## looks like ~2-6 repetitions are needed to retain max # records
+      
+    ## using thinning distance of 0.8 km reduced the number of points from 1293 to 1032
+    ## maybe use a larger distance like 1 km?
+      
+      porcs.thin <- read.csv('vlab_files/porc_thinned_thin1.csv') 
+        ## shouldn't matter which one I import; it only saves the ones that had max 
+        ## number of points preserved (there were only 2 in this case)
+    
+   
+    ## also background points (or do this at the same time, with porcS? think it ran out of memory)
+      
+      
+      
+         
 ## 4. EXTRACT RASTER VALUES
 
       names(predictors)      
@@ -108,5 +153,5 @@ library(raster)
 
       ## are these all the right class? (numeric, character, etc.)
       
+      write.csv(cur.data, 'vlab_files/cur.data.06288.csv')
 
-## 5. THIN POINTS
