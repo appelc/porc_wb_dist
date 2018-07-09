@@ -1,6 +1,7 @@
 ## Porcupine SDM using occurrence records from Oregon, Washington, and northern California
 
 library(dismo)
+library(omnibus)
 
 ## Import dataframe of pres/bg points with predictor values
 
@@ -8,9 +9,16 @@ library(dismo)
     head(cur.data)   
     cur.data <- cur.data[,-1] #get rid of row index column
     table(cur.data$pres)
-    sapply(cur.data, class)
+    sapply(cur.data, class) #are these the right classes? should categorical predictors be factors?
 
-
+  ## NAs?
+    
+    na_count <-sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+    na_count
+    
+    cur.data <- cur.data[complete.cases(cur.data),] ## removed 37 rows with NAs
+    
+    
 data <- cur.data
 cor.thresh = 0.5
 regMult = c(seq(0.5, 3, by = 0.5))
@@ -36,9 +44,9 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
     preds <- names(data)[preds]
   
   scratchDir <- if (is.null(scratchDir)) {
-    base::tempfile(pattern = "_maxentTempFiles/")
+    base::tempfile(pattern = "_maxentTempFiles\\")
   } else {
-    base::tempfile(pattern = "_maxentTempFiles/", tmpdir = scratchDir)
+    base::tempfile(pattern = "_maxentTempFiles\\", tmpdir = scratchDir)
   }
   dir.create(scratchDir)  
   
