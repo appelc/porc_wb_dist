@@ -2,22 +2,19 @@
 
 ## If running on vlab computer: 
 
-  ##  1. Download maxent.jar (from Google Drive or Maxent website) and save in 
-  ##      C:/Program Files/R/R-3.4.4/library/dismo/java/maxent.jar
-  ##  2. Download 'cur_data_070518.csv' from Google Drive and save in Documents
-  ##  3. Set scratchDir = 'C:/Users/cla236/Documents' and create a folder '_maxentTempFiles' 
-  ##      in that location 
-  ##    (If running locally, set scratchDir = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
-  ##    and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
-  ##  4. Install packages:
-
-#install.packages('dismo')
-#install.packages('rJava')
+##  1. Install packages:
+insall.packages('dismo')
+install.packages('rJava')
+##  2. Download maxent.jar (from Google Drive or Maxent website) and save in 
+##      C:/Program Files/R/R-3.4.4/library/dismo/java/maxent.jar
+##  3. Download 'cur_data_070518.csv' from Google Drive and save in Documents
+##  4. Set scratchDir = 'C:/Users/cla236/Documents' and create a folder '_maxentTempFiles' 
+##      in that location 
+##    (If running locally, set scratchDir = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
+##    and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
 
 library(dismo)
-library(omnibus)
 library(rJava)
-
 
 ## Import dataframe of pres/bg points with predictor values
 
@@ -25,15 +22,31 @@ library(rJava)
     head(cur.data)   
     cur.data <- cur.data[,-1] #get rid of row index column
     table(cur.data$pres)
-    sapply(cur.data, class) #are these the right classes? should categorical predictors be factors?
-
-  ## NAs?
+    sapply(cur.data, class)
     
-    sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-    cur.data <- cur.data[complete.cases(cur.data),] ## removed 37 rows with NAs
-    nrow(cur.data)
-
+    ## change integers to factors
     
+      for(i in 1:ncol(cur.data)){
+          if(is(cur.data[,i], 'integer')){
+            cur.data[,i] <- as.factor(cur.data[,i])
+          }
+        }
+        
+      head(cur.data)
+      sapply(cur.data, class)
+
+    ## Remove rows with NAs
+    
+        sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+        cur.data <- cur.data[complete.cases(cur.data),] 
+        table(cur.data$pres) #removed 37 rows with NAs
+
+    ## try with only categorical predictors
+        
+        cur.data <- cur.data[,c(1:6)]
+        head(cur.data)
+        setwd('C:/Users/cla236/Documents/porc_maxent_071018_wo_cat')        
+        
 data <- cur.data
 cor.thresh = 0.5
 regMult = c(seq(0.5, 3, by = 0.5))
@@ -42,7 +55,7 @@ testClasses = TRUE
 out = c("model", "table")
 anyway = TRUE
 verbose = FALSE
-scratchDir = 'C:/Users/cla236/Documents'
+scratchDir = 'C:/Users/cla236/Documents/'
 resp = names(data)[1]
 preds = names(data)[2:ncol(data)]
 path = getwd()
@@ -233,53 +246,26 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 
 porc_max <- selectMax(data)
 
-numeric.cors
+porc_max$model ## view top model
+head(porc_max$tuning) ## view model selection table
+
+write.csv(porc_max$tuning, 'selection_table_071018_no_cat.csv')
+
+numeric.cors ## which predictors were correlated?
 
 
-###### Script to calculate AICc for Maxent model
+## Create habitat suitability raster
 
-## max.obj = porc_max
-## max.model = porc_max$model
-## occ.pts = cur.data
+    ## we need the raster stack of predictors (from porc_sdm_prep script)
 
-calc_maxent_AIC <- function(max.obj, max.model, occ.pts){
-  
-  # standardize Maxent output so cells sum to 1:
-  std.raster1 <- max.model/cellStats(max.model, sum)
-  
-  # extract values of raster at all occurrence points
-  like1 <- extract(std.raster1, occ.pts)
-  
-  # Calculate the log likelihood by taking the log of each of those
-  #   values. Please note that Warren and Seifer (2011) do not 
-  
-  loglike1 <- log(like1)
-  
-  # and to get the overall likelihood by adding those together:
-  overall1 <- sum(loglike1, na.rm=TRUE)
-  
-  # Extract the "lambda" parameters from the model
-  # to estimate 'k' (the number of parameters):
-  
-  lambdas1 <- strsplit(max.obj@lambdas, ",")
-  correct.rows <- sapply(lambdas1, length) == 4
-  correct.lambdas1 <- lambdas1[correct.rows]
-  is.it.zero <- NULL
-  for(i in 1:length(correct.lambdas1)){
-    is.it.zero[i] <- correct.lambdas1[[i]][2] == " 0.0"
-  }
-  sum(is.it.zero)
-  k1 <- sum(!is.it.zero)
-  
-  n1 <- nrow(occ.pts)
-  
-  # Okay, we've got 'k', we've got the log-likelihood,
-  # and we've got 'n'. Calculate AICc:
-  
-  AICc1 <- 2*k1 - 2*overall1 + (2*k1*(k1+1))/(n1-k1-1)
-  aic.table <- data.frame(n1, k1, overall1, AICc1)
-  colnames(aic.table) <- c("n", "k", "ll", "aic")
-  return(aic.table)
-}
+    predictor_stack <- stack('predictors_stack.tif') ## how to get names to import?
+    
+    plot(predictor_stack)
 
-calc_maxent_AIC(model, model, cur.data)
+    suit_raster <- dismo::predict(porc_max$model, predictor_stack, progress = 'text',
+                                  filename = 'porc_suitability_071018.png')
+    plot(suit_raster)
+    
+    writeRaster(suit_raster, filename = 'porc_suitability_071018.tif')
+    
+    
