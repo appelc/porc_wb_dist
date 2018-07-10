@@ -1,11 +1,27 @@
 ## Porcupine SDM using occurrence records from Oregon, Washington, and northern California
 
+## If running on vlab computer: 
+
+  ##  1. Download maxent.jar (from Google Drive or Maxent website) and save in 
+  ##      C:/Program Files/R/R-3.4.4/library/dismo/java/maxent.jar
+  ##  2. Download 'cur_data_070518.csv' from Google Drive and save in Documents
+  ##  3. Set scratchDir = 'C:/Users/cla236/Documents' and create a folder '_maxentTempFiles' 
+  ##      in that location 
+  ##    (If running locally, set scratchDir = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
+  ##    and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
+  ##  4. Install packages:
+
+#install.packages('dismo')
+#install.packages('rJava')
+
 library(dismo)
 library(omnibus)
+library(rJava)
+
 
 ## Import dataframe of pres/bg points with predictor values
 
-    cur.data <- read.csv('sdm_data/cur_data_070518.csv')
+    cur.data <- read.csv('cur_data_070518.csv')
     head(cur.data)   
     cur.data <- cur.data[,-1] #get rid of row index column
     table(cur.data$pres)
@@ -13,11 +29,10 @@ library(omnibus)
 
   ## NAs?
     
-    na_count <-sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-    na_count
-    
+    sapply(cur.data, function(y) sum(length(which(is.na(y)))))
     cur.data <- cur.data[complete.cases(cur.data),] ## removed 37 rows with NAs
-    
+    nrow(cur.data)
+
     
 data <- cur.data
 cor.thresh = 0.5
@@ -26,17 +41,18 @@ classes = "default"
 testClasses = TRUE
 out = c("model", "table")
 anyway = TRUE
-verbose = TRUE
-scratchDir = NULL
+verbose = FALSE
+scratchDir = 'C:/Users/cla236/Documents'
 resp = names(data)[1]
 preds = names(data)[2:ncol(data)]
+path = getwd()
 
- 
+
 selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(data)], 
                        cor.thresh = 0.5,
                        regMult = c(seq(0.5, 3, by = 0.5)), classes = "default", testClasses = TRUE, 
-                       out = c('model', 'table'), anyway = TRUE, verbose = TRUE, scratchDir = NULL, 
-                       path = getwd()) 
+                       out = c('model', 'table'), anyway = TRUE, verbose = FALSE, 
+                       scratchDir = 'C:/Users/cla236/Documents', path = getwd()) 
 {
   if (class(resp) %in% c("integer", "numeric")) 
     resp <- names(data)[resp]
@@ -44,11 +60,11 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
     preds <- names(data)[preds]
   
   scratchDir <- if (is.null(scratchDir)) {
-    base::tempfile(pattern = "_maxentTempFiles\\")
+    base::tempfile(pattern = "_maxentTempFiles/")
   } else {
-    base::tempfile(pattern = "_maxentTempFiles\\", tmpdir = scratchDir)
+    base::tempfile(pattern = "_maxentTempFiles/", tmpdir = scratchDir)
   }
-  dir.create(scratchDir)  
+  dir.create(scratchDir)  #got error: could not find function "dirCreate"; changed to 'dir.create'
   
   presentBg <- data[, resp]
   data <- data[, preds, drop = FALSE]
@@ -215,14 +231,55 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 }
 
 
-selectMax(data)
+porc_max <- selectMax(data)
 
-
-## got error: could not find function "dirCreate"
-## - changed 'dirCreate' to 'dir.create' on line 43 (is this right/necessary?)
-
-## got error: Error in if (numeric.cors[i, j]) { : missing value where TRUE/FALSE needed
-## -  I think it's because of all the 0s. see:
-
-head(numeric.preds)
 numeric.cors
+
+
+###### Script to calculate AICc for Maxent model
+
+## max.obj = porc_max
+## max.model = porc_max$model
+## occ.pts = cur.data
+
+calc_maxent_AIC <- function(max.obj, max.model, occ.pts){
+  
+  # standardize Maxent output so cells sum to 1:
+  std.raster1 <- max.model/cellStats(max.model, sum)
+  
+  # extract values of raster at all occurrence points
+  like1 <- extract(std.raster1, occ.pts)
+  
+  # Calculate the log likelihood by taking the log of each of those
+  #   values. Please note that Warren and Seifer (2011) do not 
+  
+  loglike1 <- log(like1)
+  
+  # and to get the overall likelihood by adding those together:
+  overall1 <- sum(loglike1, na.rm=TRUE)
+  
+  # Extract the "lambda" parameters from the model
+  # to estimate 'k' (the number of parameters):
+  
+  lambdas1 <- strsplit(max.obj@lambdas, ",")
+  correct.rows <- sapply(lambdas1, length) == 4
+  correct.lambdas1 <- lambdas1[correct.rows]
+  is.it.zero <- NULL
+  for(i in 1:length(correct.lambdas1)){
+    is.it.zero[i] <- correct.lambdas1[[i]][2] == " 0.0"
+  }
+  sum(is.it.zero)
+  k1 <- sum(!is.it.zero)
+  
+  n1 <- nrow(occ.pts)
+  
+  # Okay, we've got 'k', we've got the log-likelihood,
+  # and we've got 'n'. Calculate AICc:
+  
+  AICc1 <- 2*k1 - 2*overall1 + (2*k1*(k1+1))/(n1-k1-1)
+  aic.table <- data.frame(n1, k1, overall1, AICc1)
+  colnames(aic.table) <- c("n", "k", "ll", "aic")
+  return(aic.table)
+}
+
+calc_maxent_AIC(model, model, cur.data)
