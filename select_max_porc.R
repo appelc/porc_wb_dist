@@ -18,48 +18,46 @@ library(rJava)
 
 ## Import dataframe of pres/bg points with predictor values
 
-    cur.data <- read.csv('cur_data_070518.csv') ## 'cur_data_070518.csv' or 'cur_data_no_wb_071118.csv'
-    head(cur.data)   
-    cur.data <- cur.data[,-1] #get rid of row index column
-    table(cur.data$pres)
-    sapply(cur.data, class)
+cur.data <- read.csv('cur_data_recent_073018.csv') ## 'cur_data_070518.csv' or 'cur_data_no_wb_071118.csv' or 'cur_data_recent_073018.csv'
+head(cur.data)   
+cur.data <- cur.data[,-1] #get rid of row index column
+table(cur.data$pres)
+sapply(cur.data, class)
 
-  ## change integers to factors (categorical predictors)
-    
-    #  for(i in 1:ncol(cur.data)){
-    #    if(is(cur.data[,i], 'integer')){
-    #      cur.data[,i] <- as.factor(cur.data[,i])
-    #    }
-    #  }
-    
-    #head(cur.data)
-    #sapply(cur.data, class)
-    
-  ## Remove rows with NAs
-    
-    sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-    cur.data <- cur.data[complete.cases(cur.data),] 
-    table(cur.data$pres) #removed 37 rows with NAs
-    
-  ## try with only continuous predictors
-    
-    cur.data <- cur.data[,c(1:6)]
-    head(cur.data)
-    setwd('C:/Users/cla236/Documents/maxent_no_cat_again')
-    
-  
-  ## develop candidate models (sets of predictors)
-    
-  #  model1 <- which(colnames(cur.data) == 'ppt_800m_clip' | 
-  #                    colnames(cur.data) == 'rivers_agg') ## rivers, ppt
-  #  model2 <- 
-    
-  ## try removing the wood block detections to see what the model looks like with the remaining
-    ## occcurrence points (go back to the 'maxent_prep' code, thin, extract, and export again)
-    
-    
+## change integers to factors (categorical predictors) *we're actually not even using these*
+#  for(i in 1:ncol(cur.data)){
+#    if(is(cur.data[,i], 'integer')){
+#      cur.data[,i] <- as.factor(cur.data[,i])
+#    }
+#  }
+#head(cur.data)
+#sapply(cur.data, class)
+
+
+## Remove rows with NAs
+
+sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+cur.data <- cur.data[complete.cases(cur.data),] 
+table(cur.data$pres) #removed 37 rows with NAs
+
+## try with only continuous predictors
+
+cur.data <- cur.data[,c(1:6)]
+head(cur.data)
+
+
+## develop candidate models (sets of predictors)
+#  model1 <- which(colnames(cur.data) == 'ppt_800m_clip' | 
+#                    colnames(cur.data) == 'rivers_agg') ## rivers, ppt
+#  model2 <- 
+
+## try removing the wood block detections to see what the model looks like with the remaining
+## occcurrence points (go back to the 'maxent_prep' code, thin, extract, and export again);
+## same with only points > 1980
+
+
 data <- cur.data
-setwd('C:/Users/cla236/Documents/maxent_no_cat_again')
+setwd('C:/Users/cla236/Documents/maxent_no_cat_recent_073018')
 
 cor.thresh = 0.5
 regMult = c(seq(0.5, 3, by = 0.5))
@@ -68,7 +66,7 @@ testClasses = TRUE
 out = c("model", "table")
 anyway = TRUE
 verbose = FALSE
-scratchDir = 'C:/Users/cla236/Documents/maxent_no_wb'
+#scratchDir = 'C:/Users/cla236/Documents/maxent_no_wb'
 resp = names(data)[1]
 preds = names(data)[2:ncol(data)]
 path = getwd()
@@ -78,7 +76,7 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
                        cor.thresh = 0.5,
                        regMult = c(seq(0.5, 3, by = 0.5)), classes = "default", testClasses = TRUE, 
                        out = c('model', 'table'), anyway = TRUE, verbose = FALSE, 
-                       scratchDir = 'C:/Users/cla236/Documents/maxent_no_cat_again', path = getwd()) 
+                       scratchDir = getwd(), path = getwd()) 
 {
   if (class(resp) %in% c("integer", "numeric")) 
     resp <- names(data)[resp]
@@ -99,7 +97,7 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   all.pred.combos <- expand.grid(rep(list(c(1,0)), length(pred.classes)))
   colnames(all.pred.combos) <- names(pred.classes)
   all.pred.combos <- all.pred.combos[-which(rowSums(all.pred.combos) == 0),]
-
+  
   ## specific candidate models (not just all pred combos):
   
   
@@ -266,12 +264,12 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 }
 
 
-porc_max_no_cat <- selectMax(data)
+porc_max_no_cat_recent <- selectMax(data)
 
-porc_max_no_cat$model ## view top model
-head(porc_max_no_cat$tuning) ## view model selection table
+porc_max_no_cat_recent$model ## view top model
+head(porc_max_no_cat_recent$tuning) ## view model selection table
 
-write.csv(porc_max_no_cat$tuning, 'selection_table_071118_no_cat.csv')
+write.csv(porc_max_no_cat_recent$tuning, 'selection_table_073018_no_cat_recent.csv')
 
 numeric.cors ## which predictors were correlated?
 
@@ -282,13 +280,12 @@ numeric.cors ## which predictors were correlated?
 
 predictor_stack <- stack('predictors_stack.tif') ## how to get names to import?
 
-  plot(predictor_stack)
-  names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
-                              'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
-  
-suit_raster <- dismo::predict(porc_max_no_cat$model, predictor_stack, progress = 'text')
+plot(predictor_stack)
+names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
+                            'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
 
-  plot(suit_raster)
+suit_raster <- dismo::predict(porc_max_no_cat_recent$model, predictor_stack, progress = 'text')
 
-writeRaster(suit_raster, filename = 'porc_suitability_071118_no_cat.tif')
+plot(suit_raster)
 
+writeRaster(suit_raster, filename = 'porc_suitability_073018_no_cat_recent.tif')
