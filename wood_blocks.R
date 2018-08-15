@@ -52,7 +52,7 @@ library(rgdal)
     ## Forest Service 
       cb_ca <- rbind(cb, ca)      
       usfs_wb <- merge(usfs, cb_ca, all.x = TRUE)
-        usfs_wb_id <- usfs_wb[!is.na(usfs_wb$id_by),]  ## collected/id'ed blocks
+        usfs_wb_id <- usfs_wb[!is.na(usfs_wb$id_by),]  ## collected/id'ed blocks only
         
         usfs_wb_id$porcupine_agree <- 0
           usfs_wb_id$porcupine_agree[usfs_wb_id$ERDOchew == 'TRUE' & usfs_wb_id$Porcupine.Presence == 1] <- 1
@@ -75,6 +75,7 @@ library(rgdal)
           ## kappa = 0.228 (pretty low) -- excluded 3 rows with NAs (crew didn't ID when collected)
         
    ## for the Forest Service blocks: 
+   ## (there were 25 but 3 were not ID'ed by crew)
    ##     the 2 observers agree that there is porcupine chewing on only 3 out of 22 blocks (14%)
    ##     the 2 observers agree that there is NO porcupine chewing on 11 blocks (50%)
    ##     the 2 observers disagree on the remaining 8 blocks (36%)
@@ -160,3 +161,74 @@ library(rgdal)
 ## 254 blocks collected & IDed
 ## 319 stations
 ## (65 blocks never collected)
+
+## number collected & IDed:    
+nrow(jb_cb) + nrow(usfs_wb_id) + nrow(stirling_wb_id) #254
+
+## total number stations deployed:
+nrow(jb_cb) + nrow(usfs_wb) + nrow(stirling_wb) #319
+
+  # although I don't actually know how many were deployed for the jb_cb set, just that 162 were
+  # collected/analyzed
+
+
+## overall "detection rate"? (16%)
+(40/254)*100 
+
+## klamath NF (15%)
+(13/(72+13))*100
+
+## OR coast (5%)
+(4/(73+4))*100
+
+## southern OR (USFS) (40%)
+(10/(15+10))*100
+
+## stirling (%)
+(13/(54+13))*100
+
+
+## How long were stations deployed?
+colnames(jb_cb)
+
+    jb_cb_days <- jb_cb$DaysDeploy[jb_cb$DaysDeploy != 0]
+    length(jb_cb_days)
+    min(jb_cb_days)
+    max(jb_cb_days)
+    mean(jb_cb_days)
+    sd(jb_cb_days) / sqrt(length(jb_cb_days))
+    sd(jb_cb_days) / sqrt(77)
+    
+ 
+colnames(usfs_wb)
+
+    ## most of these don't have dates, and none have both deployment and collection dates...
+    ## "Date" column are either 06/2016 or 12/2016 (is this collection?)
+
+
+colnames(stirling_wb)
+
+    stirling_wb$Date <- as.Date(stirling_wb$Date, '%m/%d/%Y')
+    stirling_wb$Set <- as.Date(stirling_wb$Set, '%m/%d/%Y')
+    stirling_wb$DaysDeploy <- stirling_wb$Date - stirling_wb$Set
+
+    stirling_days <- stirling_wb$DaysDeploy[!is.na(stirling_wb$DaysDeploy)]
+    length(stirling_days)
+    min(stirling_days)
+    max(stirling_days)
+    mean(stirling_days)
+    sd(stirling_days) / sqrt(length(stirling_days))
+    
+## combine jb_cb and Stirling
+    
+    jbcb_stirling <- c(jb_cb_days, stirling_days)
+
+    length(jbcb_stirling)    
+    min(jbcb_stirling)    
+    max(jbcb_stirling)    
+    mean(jbcb_stirling)    
+    sd(jbcb_stirling) / sqrt(length(jbcb_stirling))    
+    
+    hist(jb_cb_days)
+    hist(as.numeric(stirling_days))
+    
