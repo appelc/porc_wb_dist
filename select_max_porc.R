@@ -1,40 +1,82 @@
 ## Porcupine SDM using occurrence records from Oregon, Washington, and northern California
 
+## If running on vlab computer: 
+
+##  1. Install packages:
+install.packages('dismo')
+install.packages('rJava')
+##  2. Download maxent.jar (from Google Drive or Maxent website) and save in 
+##      C:/Program Files/R/R-3.4.4/library/dismo/java/maxent.jar
+##  3. Download 'cur_data_070518.csv' from Google Drive and save in Documents (or recent version)
+##  4. Set scratchDir = 'C:/Users/cla236/Documents' and create a folder '_maxentTempFiles' 
+##      in that location 
+##    (If running locally, set wd = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
+##    and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
+
 library(dismo)
-#library(omnibus)
+library(rJava)
 
 ## Import dataframe of pres/bg points with predictor values
 
-    cur.data <- read.csv('sdm_data/cur_data_070518.csv')
-    head(cur.data)   
-    cur.data <- cur.data[,-1] #get rid of row index column
-    table(cur.data$pres)
-    sapply(cur.data, class) #are these the right classes? should categorical predictors be factors?
+cur.data <- read.csv('cur_data_recent2012_081518.csv') ## 'cur_data_070518.csv' or 'cur_data_no_wb_071118.csv' or 'cur_data_recent_073018.csv'
+head(cur.data)   
+cur.data <- cur.data[,-1] #get rid of row index column
+table(cur.data$pres)
+sapply(cur.data, class)
 
-  ## NAs?
-    
-    sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-    cur.data <- cur.data[complete.cases(cur.data),] 
-    table(cur.data$pres) ## removed 37 rows with NAs
+## change integers to factors (categorical predictors) *we're actually not even using these*
+#  for(i in 1:ncol(cur.data)){
+#    if(is(cur.data[,i], 'integer')){
+#      cur.data[,i] <- as.factor(cur.data[,i])
+#    }
+#  }
+#head(cur.data)
+#sapply(cur.data, class)
+
+
+## Remove rows with NAs
+
+sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+cur.data <- cur.data[complete.cases(cur.data),] 
+table(cur.data$pres) #removed 37 rows with NAs
+
+## try with only continuous predictors
+
+cur.data <- cur.data[,c(1:6)]
+head(cur.data)
+
+
+## develop candidate models (sets of predictors)
+#  model1 <- which(colnames(cur.data) == 'ppt_800m_clip' | 
+#                    colnames(cur.data) == 'rivers_agg') ## rivers, ppt
+#  model2 <- 
+
+## try removing the wood block detections to see what the model looks like with the remaining
+## occcurrence points (go back to the 'maxent_prep' code, thin, extract, and export again);
+## same with only points > 1980
+
 
 data <- cur.data
+setwd('C:/Users/cla236/Documents/maxent_no_cat_recent2012_081518')
+
 cor.thresh = 0.5
 regMult = c(seq(0.5, 3, by = 0.5))
 classes = "default"
 testClasses = TRUE
 out = c("model", "table")
 anyway = TRUE
-verbose = FALSE ## if TRUE, need package 'omnibus'
-scratchDir = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
+verbose = FALSE
+#scratchDir = 'C:/Users/cla236/Documents/maxent_no_wb'
 resp = names(data)[1]
 preds = names(data)[2:ncol(data)]
+path = getwd()
 
- 
+
 selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(data)], 
                        cor.thresh = 0.5,
                        regMult = c(seq(0.5, 3, by = 0.5)), classes = "default", testClasses = TRUE, 
-                       out = c('model', 'table'), anyway = TRUE, verbose = TRUE, scratchDir = NULL, 
-                       path = getwd()) 
+                       out = c('model', 'table'), anyway = TRUE, verbose = FALSE, 
+                       scratchDir = getwd(), path = getwd()) 
 {
   if (class(resp) %in% c("integer", "numeric")) 
     resp <- names(data)[resp]
@@ -42,11 +84,11 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
     preds <- names(data)[preds]
   
   scratchDir <- if (is.null(scratchDir)) {
-    base::tempfile(pattern = "_maxentTempFiles\\")
+    base::tempfile(pattern = "_maxentTempFiles/")
   } else {
-    base::tempfile(pattern = "_maxentTempFiles\\", tmpdir = scratchDir)
+    base::tempfile(pattern = "_maxentTempFiles/", tmpdir = scratchDir)
   }
-  dir.create(scratchDir)  
+  dir.create(scratchDir)  #got error: could not find function "dirCreate"; changed to 'dir.create'
   
   presentBg <- data[, resp]
   data <- data[, preds, drop = FALSE]
@@ -56,6 +98,15 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   colnames(all.pred.combos) <- names(pred.classes)
   all.pred.combos <- all.pred.combos[-which(rowSums(all.pred.combos) == 0),]
   
+  ## specific candidate models (not just all pred combos):
+  
+  
+  
+  
+  
+  
+  
+  ##
   
   # 1. Test correlations b/w numeric vs. numeric
   numeric.preds <- data[,pred.classes %in% "numeric"]
@@ -213,14 +264,28 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 }
 
 
-selectMax(data)
+porc_max_no_cat_recent2012 <- selectMax(data)
+
+porc_max_no_cat_recent2012$model ## view top model
+head(porc_max_no_cat_recent2012$tuning) ## view model selection table
+
+write.csv(porc_max_no_cat_recent2012$tuning, 'selection_table_081518_no_cat_recent2012.csv')
+
+numeric.cors ## which predictors were correlated?
 
 
-## got error: could not find function "dirCreate"
-## - changed 'dirCreate' to 'dir.create' on line 43 (is this right/necessary?)
+## Create habitat suitability raster
 
-## got error: Error in if (numeric.cors[i, j]) { : missing value where TRUE/FALSE needed
-## -  I think it's because of all the 0s. see:
+## download the raster stack of predictors on Google Drive (from 'porc_sdm_prep' script)
 
-head(numeric.preds)
-numeric.cors
+predictor_stack <- stack('predictors_stack.tif') ## how to get names to import?
+
+names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
+                            'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
+plot(predictor_stack)
+
+suit_raster <- dismo::predict(porc_max_no_cat_recent2012$model, predictor_stack, progress = 'text')
+
+plot(suit_raster)
+
+writeRaster(suit_raster, filename = 'porc_suitability_073018_no_cat_recent.tif')
