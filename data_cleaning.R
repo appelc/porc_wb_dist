@@ -464,7 +464,7 @@ library(extrafont) ## for ggplot2
           
     ## Rearrange
       occur <- occur[,c(1:11, 178:332)] #leave off colunms 12:177 (all GBIF)
-      occur$gbif_info <- 'see GBIF download for details'
+      occur$gbif_info[occur$source == 'GBIF'] <- 'see GBIF download for details'
     
     ## Find duplicates. NRM/ORBIC don't have the same OBJECTID. Use date and coord:
       dups <- duplicated(occur[ , c('lat', 'lon', 'date')])    
@@ -559,4 +559,32 @@ library(extrafont) ## for ggplot2
               ## just present as a table instead (or indicate sample size in map figure)
         
         table(final.occur$decade)
-       
+
+        table(final.occur$source, final.occur$decade)       
+        
+        
+## common roadkill areas?
+head(wsdot)
+plot(or_wa_spdf)        
+points(wsdot.spdf)
+
+table(wsdot$route)
+## hwy 101 (18) Aberdeen to Astoria
+## hwy 105 (14) Aberdeen, Westport, Raymond
+## hwy 12 (45)  ** ~ Walla Walla
+## hwy 195 (77) ** Colfax to Spokane
+## hwy 2 (52)   ** W and N of Spokane
+## hwy 26 (22)  * Colfax to Othello
+## hwy 261 (14) S of Washtucna (Snake R)
+## hwy 28 (14) Ephrata to Davenport
+## hwy 27 (46)  ** SE of Spokane
+## hwy 395 (17) Colville to Spokane
+## I-5 (23)     * Napavine to Longview
+## hwy 82 (27)  * Yakima
+## I-90 (126)   *** Columbia River to Moses Lake, and Sprague to Spokane
+## hwy 904 (16) N of Cheney
+## hwy 97 (14) S of Yakima **also to Bend and Klamath Falls in OR
+
+## *** > 100
+## ** 40 - 80
+## * 20-30
