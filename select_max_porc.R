@@ -1,7 +1,7 @@
 ## Porcupine SDM using occurrence records from Oregon, Washington, and northern California
 
 library(dismo)
-library(omnibus)
+#library(omnibus)
 
 ## Import dataframe of pres/bg points with predictor values
 
@@ -13,12 +13,10 @@ library(omnibus)
 
   ## NAs?
     
-    na_count <-sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-    na_count
-    
-    cur.data <- cur.data[complete.cases(cur.data),] ## removed 37 rows with NAs
-    
-    
+    sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+    cur.data <- cur.data[complete.cases(cur.data),] 
+    table(cur.data$pres) ## removed 37 rows with NAs
+
 data <- cur.data
 cor.thresh = 0.5
 regMult = c(seq(0.5, 3, by = 0.5))
@@ -26,8 +24,8 @@ classes = "default"
 testClasses = TRUE
 out = c("model", "table")
 anyway = TRUE
-verbose = TRUE
-scratchDir = NULL
+verbose = FALSE ## if TRUE, need package 'omnibus'
+scratchDir = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
 resp = names(data)[1]
 preds = names(data)[2:ncol(data)]
 
