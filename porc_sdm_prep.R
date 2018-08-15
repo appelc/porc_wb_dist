@@ -66,7 +66,7 @@ library(spThin)
       porcs <- bind(porc_occur_orwa, porc_occur_nca, porc_wb)
       #porcs <- bind(porc_occur_orwa, porc_occur_nca) ## if running w/ no wood block data
       #porcs <- porcs[porcs@data$year > 1980,] ## if running w/ only points >= 1981
-      porcs <- porcs[porcs@data$year > 2012,] ## if running w/ only points >= 2012
+      porcs <- porcs[porcs@data$year >= 2012,] ## if running w/ only points >= 2012
       
 ## 3. THIN PRESENCE POINTS
       
