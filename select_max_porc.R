@@ -288,4 +288,4 @@ suit_raster <- dismo::predict(porc_max_no_cat_recent2012$model, predictor_stack,
 
 plot(suit_raster)
 
-writeRaster(suit_raster, filename = 'porc_suitability_073018_no_cat_recent.tif')
+writeRaster(suit_raster, filename = 'porc_suitability_081518_no_cat_recent2012.tif')
