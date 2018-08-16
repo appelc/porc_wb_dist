@@ -8,7 +8,7 @@ library(raster)
     ## 1a. using model created WITH wood block detections included:
 
       ## load habitat suitability raster
-          suit <- raster('shapefiles/sdm/porc_suitability_081518_no_cat_recent2012.tif')
+          suit <- raster('shapefiles/sdm/porc_suitability_081518_no_cat_2012to2018.tif')
     
       ## load occurrence records (OR/WA and northern CA):
           porc_occur_orwa <- readOGR(dsn = './shapefiles/observations', layer = 'orwa_occur_062218')
@@ -82,9 +82,16 @@ library(raster)
       ## 90%: 0.775
       ## 95%: 0.843
           
-    ## w/ only points >= 2012:
+    ## w/ only points > 2012 (oops):
       ## 5%: 0.431
       ## 10%: 0.431
       ## 50%: 0.731
       ## 90%: 0.775
       ## 95%: 0.916
+          
+    ## w/ only points >= 2012 (oops):
+      ## 5%: 0.433
+      ## 10%: 0.441
+      ## 50%: 0.730
+      ## 90%: 0.798
+      ## 95%: 0.927

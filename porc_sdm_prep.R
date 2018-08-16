@@ -66,7 +66,8 @@ library(spThin)
       porcs <- bind(porc_occur_orwa, porc_occur_nca, porc_wb)
       #porcs <- bind(porc_occur_orwa, porc_occur_nca) ## if running w/ no wood block data
       #porcs <- porcs[porcs@data$year > 1980,] ## if running w/ only points >= 1981
-      porcs <- porcs[porcs@data$year >= 2012,] ## if running w/ only points >= 2012
+      #porcs <- porcs[porcs@data$year >= 2012,] ## if running w/ only points >= 2012
+      porcs <- porcs[porcs@data$year < 2012,] ## if running w/ only points < 2012 
       
 ## 3. THIN PRESENCE POINTS
       
@@ -94,7 +95,7 @@ library(spThin)
       thinned <- thin(porc.pts, lat.col = 'y', long.col = 'x', spec.col = 'pres',
                       thin.par = 0.8, reps = 10, locs.thinned.list.return = TRUE,
                       write.files = TRUE, max.files = 5, out.dir = 'sdm_data/',
-                      out.base = 'porc_thinned_recent2012', write.log.file = TRUE, 
+                      out.base = 'porc_thinned_before2012', write.log.file = TRUE, 
                       log.file = 'porc_thinned_full_log_file.txt', verbose = TRUE)
       
       plotThin(thinned) ## looks like only ~2 repetitions are needed to retain max # records
@@ -105,7 +106,8 @@ library(spThin)
       porcs.thin <- read.csv('sdm_data/porc_thinned_thin1.csv')
       porcs.thin.no.wb <- read.csv('sdm_data/porc_thinned_no_wb_thin1.csv') ## reduced from 1253 to 991
       porcs.thin.recent <- read.csv('sdm_data/porc_thinned_recent_thin1.csv') ## reduced from 1102 to 844
-      porcs.thin.recent2012 <- read.csv('sdm_data/porc_thinned_recent2012_thin1.csv') ## reduced from 908 to 670
+      porcs.thin.recent2012incl <- read.csv('sdm_data/porc_thinned_recent2012incl_thin1.csv') ## reduced from 908 to 670
+      porcs.thin.before2012 <- read.csv('sdm_data/porc_thinned_before2012_thin1.csv')
       
       ## shouldn't matter which one I import; it only saves the ones that had max 
       ## number of points preserved (there were only 2 in this case)
@@ -119,8 +121,11 @@ library(spThin)
       head(porcs.thin.recent)
       nrow(porcs.thin.recent)
       
-      head(porcs.thin.recent2012)
-      nrow(porcs.thin.recent2012)
+      head(porcs.thin.recent2012incl) 
+      nrow(porcs.thin.recent2012incl) ## started with 964, wo duplicates 932, after thinning 693
+      
+      head(porcs.thin.before2012)
+      nrow(porcs.thin.before2012) ## started with 369, wo duplicates 361, after thinning 348
 
 ## 3. GENERATE BACKGROUND POINTS WITHIN STUDY AREA
       
@@ -147,8 +152,11 @@ library(spThin)
       all.pts.recent <- rbind(porcs.thin.recent, bg.pts)
         table(all.pts.recent$pres)  
         
-      all.pts.recent2012 <- rbind(porcs.thin.recent2012, bg.pts)
-        table(all.pts.recent2012$pres)
+      all.pts.recent2012incl <- rbind(porcs.thin.recent2012incl, bg.pts)
+        table(all.pts.recent2012incl$pres)
+        
+      all.pts.before2012 <- rbind(porcs.thin.before2012, bg.pts)
+        table(all.pts.before2012$pres)   
         
     ## convert back to SPDF
       sp.all.pts <- SpatialPointsDataFrame(data.frame(all.pts$x, all.pts$y), data = all.pts, 
@@ -164,8 +172,11 @@ library(spThin)
       sp.all.pts.recent <- SpatialPointsDataFrame(data.frame(all.pts.recent$x, all.pts.recent$y),
                                                   data = all.pts.recent, proj4string = porcs@proj4string)
       
-      sp.all.pts.recent2012 <- SpatialPointsDataFrame(data.frame(all.pts.recent2012$x, all.pts.recent2012$y),
-                                                      data = all.pts.recent2012, proj4string = porcs@proj4string)
+      sp.all.pts.recent2012incl <- SpatialPointsDataFrame(data.frame(all.pts.recent2012incl$x, all.pts.recent2012incl$y),
+                                                      data = all.pts.recent2012incl, proj4string = porcs@proj4string)
+      
+      sp.all.pts.before2012 <- SpatialPointsDataFrame(data.frame(all.pts.before2012$x, all.pts.before2012$y),
+                                                          data = all.pts.before2012, proj4string = porcs@proj4string)
       
 ## 4. EXTRACT RASTER VALUES
       
@@ -180,8 +191,11 @@ library(spThin)
       sp.all.pts.recent$pred_ <- extract(predictors, sp.all.pts.recent)
       head(sp.all.pts.recent@data)
       
-      sp.all.pts.recent2012$pred_ <- extract(predictors, sp.all.pts.recent2012)
-      head(sp.all.pts.recent2012@data)  
+      sp.all.pts.recent2012incl$pred_ <- extract(predictors, sp.all.pts.recent2012incl)
+      head(sp.all.pts.recent2012incl@data)  
+      
+      sp.all.pts.before2012$pred_ <- extract(predictors, sp.all.pts.before2012)
+      head(sp.all.pts.before2012@data)  
       
     ## simplify dataframe (pres, predictor values)
       cur.data <- cbind(sp.all.pts@data$pres, data.frame(sp.all.pts@data$pred_))
@@ -199,7 +213,13 @@ library(spThin)
       
         write.csv(cur.data.recent, 'sdm_data/cur_data_recent_073018.csv')
         
-      cur.data.recent2012 <- cbind(sp.all.pts.recent2012@data$pres, data.frame(sp.all.pts.recent2012@data$pred_))
-      colnames(cur.data.recent2012)[1] <- 'pres'    
+      cur.data.recent2012incl <- cbind(sp.all.pts.recent2012incl@data$pres, data.frame(sp.all.pts.recent2012incl@data$pred_))
+      colnames(cur.data.recent2012incl)[1] <- 'pres'    
       
-      write.csv(cur.data.recent2012, 'sdm_data/cur_data_recent2012_081518.csv')  
+        write.csv(cur.data.recent2012incl, 'sdm_data/cur_data_2012-18_081618.csv')  
+
+      cur.data.before2012 <- cbind(sp.all.pts.before2012@data$pres, data.frame(sp.all.pts.before2012@data$pred_))
+      colnames(cur.data.before2012)[1] <- 'pres'      
+        
+        write.csv(cur.data.before2012, 'sdm_data/cur_data_before2012.csv')
+        
