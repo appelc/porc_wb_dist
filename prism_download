@@ -1,0 +1,18 @@
+library(prism)
+
+
+## [download historical PRISM data]
+
+## 1908 - 1980 (oldest porc record = 1908)
+    
+    options(prism.path = './shapefiles/prism_historical')
+    get_prism_annual(type = 'ppt', years = 1908:2012) ## will download ALL data < 1981
+    
+    ppt_names <- ls_prism_data(name=TRUE)
+    ppt_pre2012 <- prism_stack(ls_prism_data())
+    
+    ## this isn't going to work -- we get individual annual files and would need to calculate 
+    ## normals somewhow, and also resample the rest of the predictor rasters to 4km
+    
+## So, use just the 800m 30-year annual normals I already have for 1981-2011
+## And for 2012-2018, use those 30-year normals as well as LEMMA predictors
