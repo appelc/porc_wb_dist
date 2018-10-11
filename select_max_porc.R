@@ -3,28 +3,28 @@
 ## If running on vlab computer: 
 
 ##  1. Install packages:
-install.packages('dismo')
-install.packages('rJava')
+  install.packages('dismo')
+  install.packages('rJava')
 ##  2. Download maxent.jar (from Google Drive or Maxent website) and save in 
 ##      C:/Program Files/R/R-3.4.4/library/dismo/java/maxent.jar
-##  3. Download 'cur_data_070518.csv' from Google Drive and save in Documents (or recent version)
-##  4. Set scratchDir = 'C:/Users/cla236/Documents' and create a folder '_maxentTempFiles' 
-##      in that location 
-##    (If running locally, set wd = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
-##    and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
+##  3. Download 'cur_data_XX.csv' (desired version) from Drive and save in Documents
+##  4. Create a folder for the current session (e.g., 'Documents/maxent_porc_date_XX) 
+##      and a subfolder '_maxentTempFiles' in that location 
+##  (If running locally, set wd = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
+##  and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
 
 library(dismo)
 library(rJava)
 
-## Import dataframe of pres/bg points with predictor values
+## import dataframe of pres/bg points with predictor values
 
-cur.data <- read.csv('cur_data_2012-18_081618.csv') ## load desired data
-head(cur.data)   
-cur.data <- cur.data[,-1] #get rid of row index column
-table(cur.data$pres)
-sapply(cur.data, class)
+  cur.data <- read.csv('cur_data_1981to2010.csv') ## load desired data
+  head(cur.data)   
+  cur.data <- cur.data[,-1] ## get rid of row index column
+  table(cur.data$pres)
+  sapply(cur.data, class)
 
-    ## change integers to factors (categorical predictors) *we're actually not even using these*
+## change integers to factors (categorical predictors) *we're actually not even using these*
     #  for(i in 1:ncol(cur.data)){
     #    if(is(cur.data[,i], 'integer')){
     #      cur.data[,i] <- as.factor(cur.data[,i])
@@ -33,36 +33,37 @@ sapply(cur.data, class)
     # head(cur.data)
     # sapply(cur.data, class)
 
-## Remove rows with NAs
+## remove rows with NAs
 
   sapply(cur.data, function(y) sum(length(which(is.na(y)))))
   cur.data <- cur.data[complete.cases(cur.data),] 
   table(cur.data$pres) #removed 37 rows with NAs
 
-## keep only desired predictors (e.g., only categorical, only ppt/rivers for historical)
+## keep only desired predictors (e.g., only continuous, only ppt/rivers for historical)
 
-  cur.data <- cur.data[,c(1:6)] #for 2012-2018
-  #cur.data <- cur.data[,c(1:3)] #for 1981-2010
+  #cur.data <- cur.data[,c(1:6)] #for 2012-2018
+  cur.data <- cur.data[,c(1:3)] #for 1981-2010
   head(cur.data)
 
-
-## set working directory
+## set working directory (CHANGE FILENAME)
   data <- cur.data
-  setwd('C:/Users/cla236/Documents/maxent_porc_101018_no_cat_2012-2018')
+  setwd('C:/Users/cla236/Documents/maxent_porc_101118_no_cat_1981-2010')
 
-cor.thresh = 0.5
-regMult = c(seq(0.5, 3, by = 0.5))
-classes = "default"
-testClasses = TRUE
-out = c("model", "table")
-anyway = TRUE
-verbose = FALSE
-scratchDir = getwd()
-resp = names(data)[1]
-preds = names(data)[2:ncol(data)]
-path = getwd()
+## set parameters (only if running function manually)
+  #cor.thresh = 0.5
+  #regMult = c(seq(0.5, 3, by = 0.5))
+  #classes = "default"
+  #testClasses = TRUE
+  #out = c("model", "table")
+  #anyway = TRUE
+  #verbose = FALSE
+  #scratchDir = getwd()
+  #resp = names(data)[1]
+  #preds = names(data)[2:ncol(data)]
+  #path = getwd()
 
-
+## define function
+  
 selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(data)], 
                        cor.thresh = 0.5,
                        regMult = c(seq(0.5, 3, by = 0.5)), classes = "default", testClasses = TRUE, 
@@ -248,26 +249,25 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 }
 
 
-porc_max_2012to2018 <- selectMax(data)
+## run!
 
-porc_max_2012to2018$model ## view top model
-head(porc_max_2012to2018$tuning) ## view model selection table
+  max_results <- selectMax(data)
 
-write.csv(porc_max_2012to2018$tuning, 'selection_table_101018_no_cat_2012to2018.csv')
+## view top model & model selection table
+  
+  max_results$model 
+  head(max_results$tuning)
+  write.csv(max_results$tuning, 'selection_table_101118_no_cat_1981to2010.csv')
 
+## download the raster stack of predictors from Drive  (created from 'porc_sdm_prep' script)
 
-## Create habitat suitability raster
+  predictor_stack <- stack('C:/Users/cla236/Documents/predictors_stack.tif')
+  names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
+                              'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
+  plot(predictor_stack)
 
-## download the raster stack of predictors on Google Drive (from 'porc_sdm_prep' script)
-
-predictor_stack <- stack('C:/Users/cla236/Documents/predictors_stack.tif')
-
-names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
-                            'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
-plot(predictor_stack)
-
-suit_raster <- dismo::predict(porc_max_2012to2018$model, predictor_stack, progress = 'text')
-
-plot(suit_raster)
-
-writeRaster(suit_raster, filename = 'porc_suitability_100918_no_cat_2012to2018.tif')
+## create habitat suitability raster
+  
+  suit_raster <- dismo::predict(max_results$model, predictor_stack, progress = 'text')
+  plot(suit_raster)
+  writeRaster(suit_raster, filename = 'porc_suitability_101118_no_cat_1981to2010.tif')
