@@ -257,7 +257,6 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   
   max_results$model 
   head(max_results$tuning)
-  write.csv(max_results$tuning, 'selection_table_101118_no_cat_1981to2010.csv')
 
 ## download the raster stack of predictors from Drive  (created from 'porc_sdm_prep' script)
 
@@ -270,4 +269,9 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   
   suit_raster <- dismo::predict(max_results$model, predictor_stack, progress = 'text')
   plot(suit_raster)
-  writeRaster(suit_raster, filename = 'porc_suitability_101118_no_cat_1981to2010.tif')
+         
+## save table & raster (CHANGE FILENAMES)
+         
+   write.csv(max_results$tuning, 'selection_table_101118_no_cat_1981to2010.csv')
+   writeRaster(suit_raster, filename = 'porc_suitability_101118_no_cat_1981to2010.tif')
+         
