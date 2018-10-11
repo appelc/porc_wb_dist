@@ -18,49 +18,49 @@ library(rJava)
 
 ## Import dataframe of pres/bg points with predictor values
 
-cur.data <- read.csv('cur_data_1981to2010.csv') ## load desired data
+cur.data <- read.csv('cur_data_2012-18_081618.csv') ## load desired data
 head(cur.data)   
 cur.data <- cur.data[,-1] #get rid of row index column
 table(cur.data$pres)
 sapply(cur.data, class)
 
-## change integers to factors (categorical predictors) *we're actually not even using these*
-#  for(i in 1:ncol(cur.data)){
-#    if(is(cur.data[,i], 'integer')){
-#      cur.data[,i] <- as.factor(cur.data[,i])
-#    }
-#  }
-#head(cur.data)
-#sapply(cur.data, class)
-
+    ## change integers to factors (categorical predictors) *we're actually not even using these*
+    #  for(i in 1:ncol(cur.data)){
+    #    if(is(cur.data[,i], 'integer')){
+    #      cur.data[,i] <- as.factor(cur.data[,i])
+    #    }
+    #  }
+    # head(cur.data)
+    # sapply(cur.data, class)
 
 ## Remove rows with NAs
 
-sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-cur.data <- cur.data[complete.cases(cur.data),] 
-table(cur.data$pres) #removed 37 rows with NAs
+  sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+  cur.data <- cur.data[complete.cases(cur.data),] 
+  table(cur.data$pres) #removed 37 rows with NAs
 
-## keep only desired predictors
+## keep only desired predictors (e.g., only categorical, only ppt/rivers for historical)
 
-cur.data <- cur.data[,c(1:3)]
-head(cur.data)
+  cur.data <- cur.data[,c(1:6)] #for 2012-2018
+  #cur.data <- cur.data[,c(1:3)] #for 1981-2010
+  head(cur.data)
 
 
 ## set working directory
   data <- cur.data
-  setwd('C:/Users/cla236/Documents/maxent_porc_100918_no_cat_1981-2010')
-  cor.thresh = 0.5
+  setwd('C:/Users/cla236/Documents/maxent_porc_101018_no_cat_2012-2018')
 
-#regMult = c(seq(0.5, 3, by = 0.5))
-#classes = "default"
-#testClasses = TRUE
-#out = c("model", "table")
-#anyway = TRUE
-#verbose = FALSE
-#scratchDir = 'C:/Users/cla236/Documents/maxent_no_wb'
-#resp = names(data)[1]
-#preds = names(data)[2:ncol(data)]
-#path = getwd()
+cor.thresh = 0.5
+regMult = c(seq(0.5, 3, by = 0.5))
+classes = "default"
+testClasses = TRUE
+out = c("model", "table")
+anyway = TRUE
+verbose = FALSE
+scratchDir = getwd()
+resp = names(data)[1]
+preds = names(data)[2:ncol(data)]
+path = getwd()
 
 
 selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(data)], 
@@ -91,7 +91,7 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   
    ##
   
-  # 1. Test correlations b/w numeric vs. numeric
+  # Test correlations b/w numeric vs. numeric
   numeric.preds <- data[,pred.classes %in% "numeric"]
   numeric.cors <- abs(cor(numeric.preds)) > cor.thresh ## added 'abs' 10/9/18
   for(i in 1:ncol(numeric.cors)){
@@ -114,7 +114,7 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
     }
   }
   
-  # only 1 factor at a time
+  # [if categorical predictors] only 1 factor at a time
   for(i in 1:length(pred.classes)){
     for(j in 1:length(pred.classes)){
       if(i < j){
@@ -133,19 +133,19 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   }
   
   # remove single predictor models
-  k <- 1
-  while(k <= nrow(all.pred.combos)){
-    cur.row <- all.pred.combos[k,]
-    if(rowSums(cur.row) == 1){
-      all.pred.combos <- all.pred.combos[-k,]
-    } else { k <- k + 1 }
-  }
+#  k <- 1
+#  while(k <= nrow(all.pred.combos)){
+#    cur.row <- all.pred.combos[k,]
+#    if(rowSums(cur.row) == 1){
+#      all.pred.combos <- all.pred.combos[-k,]
+#    } else { k <- k + 1 }
+#  }
   
-  presences <- data[which(presentBg == 1), ]
-  if (class(presences) != "data.frame") 
+  presences <- data[which(presentBg == 1), ]   #get predictor values at presences
+  if (class(presences) != "data.frame")        #make sure it's a data.frame
     presences <- as.data.frame(presences)
   names(presences) <- names(data)
-  bg <- data[which(presentBg == 0), ]
+  bg <- data[which(presentBg == 0), ]          #get predictor values at bg points
   if (class(bg) != "data.frame") 
     bg <- as.data.frame(bg)
   names(bg) <- names(data)
@@ -163,7 +163,8 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
       thesePreds <- paste(preds[as.logical(unlist(all.pred.combos[countCombo, 
                                                                   ]))], collapse = " ")
       curPreds <- preds[as.logical(unlist(all.pred.combos[countCombo,]))]
-      thisData <- data[,colnames(data) %in% curPreds]
+      thisData <- data.frame(data[,colnames(data) %in% curPreds]) #add 'data.frame' for single-pred models
+      colnames(thisData) <- curPreds #colnames are correct except for single-pred models, so add this
       thisPresences <- presences
       thisBg <- bg
       
@@ -247,14 +248,12 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 }
 
 
-porc_max_1981to2010 <- selectMax(data)
+porc_max_2012to2018 <- selectMax(data)
 
-porc_max_1981to2010$model ## view top model
-head(porc_max_1981to2010$tuning) ## view model selection table
+porc_max_2012to2018$model ## view top model
+head(porc_max_2012to2018$tuning) ## view model selection table
 
-write.csv(porc_max_1981to2010$tuning, 'selection_table_100918_no_cat_1981to1010.csv')
-
-numeric.cors ## which predictors were correlated?
+write.csv(porc_max_2012to2018$tuning, 'selection_table_101018_no_cat_2012to2018.csv')
 
 
 ## Create habitat suitability raster
@@ -267,8 +266,8 @@ names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'can
                             'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
 plot(predictor_stack)
 
-suit_raster <- dismo::predict(porc_max_1981to2010$model, predictor_stack, progress = 'text')
+suit_raster <- dismo::predict(porc_max_2012to2018$model, predictor_stack, progress = 'text')
 
 plot(suit_raster)
 
-writeRaster(suit_raster, filename = 'porc_suitability_100918_no_cat_1981to2010.tif')
+writeRaster(suit_raster, filename = 'porc_suitability_100918_no_cat_2012to2018.tif')
