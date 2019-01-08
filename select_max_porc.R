@@ -3,75 +3,67 @@
 ## If running on vlab computer: 
 
 ##  1. Install packages:
-install.packages('dismo')
-install.packages('rJava')
+  install.packages('dismo')
+  install.packages('rJava')
 ##  2. Download maxent.jar (from Google Drive or Maxent website) and save in 
 ##      C:/Program Files/R/R-3.4.4/library/dismo/java/maxent.jar
-##  3. Download 'cur_data_070518.csv' from Google Drive and save in Documents (or recent version)
-##  4. Set scratchDir = 'C:/Users/cla236/Documents' and create a folder '_maxentTempFiles' 
-##      in that location 
-##    (If running locally, set wd = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
-##    and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
+##  3. Download 'cur_data_XX.csv' (desired version) from Drive and save in Documents
+##  4. Create a folder for the current session (e.g., 'Documents/maxent_porc_date_XX) 
+##      and a subfolder '_maxentTempFiles' in that location 
+##  (If running locally, set wd = 'C:/Users/Cara/Documents/porc_wb_dist/sdm_data'
+##  and change pattern = "_maxentTempFiles/" to "_maxentTempFiles\\")
 
 library(dismo)
 library(rJava)
 
-## Import dataframe of pres/bg points with predictor values
+## import dataframe of pres/bg points with predictor values
 
-cur.data <- read.csv('cur_data_recent2012_081518.csv') ## 'cur_data_070518.csv' or 'cur_data_no_wb_071118.csv' or 'cur_data_recent_073018.csv'
-head(cur.data)   
-cur.data <- cur.data[,-1] #get rid of row index column
-table(cur.data$pres)
-sapply(cur.data, class)
+  cur.data <- read.csv('cur_data_1981to2010.csv') ## load desired data
+  head(cur.data)   
+  cur.data <- cur.data[,-1] ## get rid of row index column
+  table(cur.data$pres)
+  sapply(cur.data, class)
 
 ## change integers to factors (categorical predictors) *we're actually not even using these*
-#  for(i in 1:ncol(cur.data)){
-#    if(is(cur.data[,i], 'integer')){
-#      cur.data[,i] <- as.factor(cur.data[,i])
-#    }
-#  }
-#head(cur.data)
-#sapply(cur.data, class)
+    #  for(i in 1:ncol(cur.data)){
+    #    if(is(cur.data[,i], 'integer')){
+    #      cur.data[,i] <- as.factor(cur.data[,i])
+    #    }
+    #  }
+    # head(cur.data)
+    # sapply(cur.data, class)
 
+## remove rows with NAs
 
-## Remove rows with NAs
+  sapply(cur.data, function(y) sum(length(which(is.na(y)))))
+  cur.data <- cur.data[complete.cases(cur.data),] 
+  table(cur.data$pres) #removed 37 rows with NAs
 
-sapply(cur.data, function(y) sum(length(which(is.na(y)))))
-cur.data <- cur.data[complete.cases(cur.data),] 
-table(cur.data$pres) #removed 37 rows with NAs
+## keep only desired predictors (e.g., only continuous, only ppt/rivers for historical)
 
-## try with only continuous predictors
+  #cur.data <- cur.data[,c(1:6)] #for 2012-2018
+  cur.data <- cur.data[,c(1:3)] #for 1981-2010
+  head(cur.data)
 
-cur.data <- cur.data[,c(1:6)]
-head(cur.data)
+## set working directory (CHANGE FILENAME)
+  data <- cur.data
+  setwd('C:/Users/cla236/Documents/maxent_porc_101118_no_cat_1981-2010')
 
+## set parameters (only if running function manually)
+  #cor.thresh = 0.5
+  #regMult = c(seq(0.5, 3, by = 0.5))
+  #classes = "default"
+  #testClasses = TRUE
+  #out = c("model", "table")
+  #anyway = TRUE
+  #verbose = FALSE
+  #scratchDir = getwd()
+  #resp = names(data)[1]
+  #preds = names(data)[2:ncol(data)]
+  #path = getwd()
 
-## develop candidate models (sets of predictors)
-#  model1 <- which(colnames(cur.data) == 'ppt_800m_clip' | 
-#                    colnames(cur.data) == 'rivers_agg') ## rivers, ppt
-#  model2 <- 
-
-## try removing the wood block detections to see what the model looks like with the remaining
-## occcurrence points (go back to the 'maxent_prep' code, thin, extract, and export again);
-## same with only points > 1980
-
-
-data <- cur.data
-setwd('C:/Users/cla236/Documents/maxent_no_cat_recent2012_081518')
-
-cor.thresh = 0.5
-regMult = c(seq(0.5, 3, by = 0.5))
-classes = "default"
-testClasses = TRUE
-out = c("model", "table")
-anyway = TRUE
-verbose = FALSE
-#scratchDir = 'C:/Users/cla236/Documents/maxent_no_wb'
-resp = names(data)[1]
-preds = names(data)[2:ncol(data)]
-path = getwd()
-
-
+## define function
+  
 selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(data)], 
                        cor.thresh = 0.5,
                        regMult = c(seq(0.5, 3, by = 0.5)), classes = "default", testClasses = TRUE, 
@@ -98,19 +90,11 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   colnames(all.pred.combos) <- names(pred.classes)
   all.pred.combos <- all.pred.combos[-which(rowSums(all.pred.combos) == 0),]
   
-  ## specific candidate models (not just all pred combos):
+   ##
   
-  
-  
-  
-  
-  
-  
-  ##
-  
-  # 1. Test correlations b/w numeric vs. numeric
+  # Test correlations b/w numeric vs. numeric
   numeric.preds <- data[,pred.classes %in% "numeric"]
-  numeric.cors <- cor(numeric.preds) > cor.thresh
+  numeric.cors <- abs(cor(numeric.preds)) > cor.thresh ## added 'abs' 10/9/18
   for(i in 1:ncol(numeric.cors)){
     for(j in 1:ncol(numeric.cors)){
       if(i < j){
@@ -131,7 +115,7 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
     }
   }
   
-  # only 1 factor at a time
+  # [if categorical predictors] only 1 factor at a time
   for(i in 1:length(pred.classes)){
     for(j in 1:length(pred.classes)){
       if(i < j){
@@ -150,19 +134,19 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
   }
   
   # remove single predictor models
-  k <- 1
-  while(k <= nrow(all.pred.combos)){
-    cur.row <- all.pred.combos[k,]
-    if(rowSums(cur.row) == 1){
-      all.pred.combos <- all.pred.combos[-k,]
-    } else { k <- k + 1 }
-  }
+#  k <- 1
+#  while(k <= nrow(all.pred.combos)){
+#    cur.row <- all.pred.combos[k,]
+#    if(rowSums(cur.row) == 1){
+#      all.pred.combos <- all.pred.combos[-k,]
+#    } else { k <- k + 1 }
+#  }
   
-  presences <- data[which(presentBg == 1), ]
-  if (class(presences) != "data.frame") 
+  presences <- data[which(presentBg == 1), ]   #get predictor values at presences
+  if (class(presences) != "data.frame")        #make sure it's a data.frame
     presences <- as.data.frame(presences)
   names(presences) <- names(data)
-  bg <- data[which(presentBg == 0), ]
+  bg <- data[which(presentBg == 0), ]          #get predictor values at bg points
   if (class(bg) != "data.frame") 
     bg <- as.data.frame(bg)
   names(bg) <- names(data)
@@ -180,7 +164,8 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
       thesePreds <- paste(preds[as.logical(unlist(all.pred.combos[countCombo, 
                                                                   ]))], collapse = " ")
       curPreds <- preds[as.logical(unlist(all.pred.combos[countCombo,]))]
-      thisData <- data[,colnames(data) %in% curPreds]
+      thisData <- data.frame(data[,colnames(data) %in% curPreds]) #add 'data.frame' for single-pred models
+      colnames(thisData) <- curPreds #colnames are correct except for single-pred models, so add this
       thisPresences <- presences
       thisBg <- bg
       
@@ -264,28 +249,29 @@ selectMax <- function (data, resp = names(data)[1], preds = names(data)[2:ncol(d
 }
 
 
-porc_max_no_cat_recent2012 <- selectMax(data)
+## run!
 
-porc_max_no_cat_recent2012$model ## view top model
-head(porc_max_no_cat_recent2012$tuning) ## view model selection table
+  max_results <- selectMax(data)
 
-write.csv(porc_max_no_cat_recent2012$tuning, 'selection_table_081518_no_cat_recent2012.csv')
+## view top model & model selection table
+  
+  max_results$model 
+  head(max_results$tuning)
 
-numeric.cors ## which predictors were correlated?
+## download the raster stack of predictors from Drive  (created from 'porc_sdm_prep' script)
 
+  predictor_stack <- stack('C:/Users/cla236/Documents/predictors_stack.tif')
+  names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
+                              'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
+  plot(predictor_stack)
 
-## Create habitat suitability raster
-
-## download the raster stack of predictors on Google Drive (from 'porc_sdm_prep' script)
-
-predictor_stack <- stack('predictors_stack.tif') ## how to get names to import?
-
-names(predictor_stack) <- c('ppt_800m_clip', 'rivers_agg', 'cancovcon_agg', 'cancovhdw_agg',
-                            'tphge3_agg', 'struccond_res', 'vegclass_res', 'nlcd2011_res')
-plot(predictor_stack)
-
-suit_raster <- dismo::predict(porc_max_no_cat_recent2012$model, predictor_stack, progress = 'text')
-
-plot(suit_raster)
-
-writeRaster(suit_raster, filename = 'porc_suitability_081518_no_cat_recent2012.tif')
+## create habitat suitability raster
+  
+  suit_raster <- dismo::predict(max_results$model, predictor_stack, progress = 'text')
+  plot(suit_raster)
+         
+## save table & raster (CHANGE FILENAMES)
+         
+   write.csv(max_results$tuning, 'selection_table_101118_no_cat_1981to2010.csv')
+   writeRaster(suit_raster, filename = 'porc_suitability_101118_no_cat_1981to2010.tif')
+         
