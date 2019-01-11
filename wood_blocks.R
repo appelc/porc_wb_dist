@@ -97,7 +97,7 @@ library(rgdal)
    
       nrow(all_blocks)
         ## total 322
-    
+      write.csv(all_blocks, 'spreadsheets/all_blocks_010919.csv')
     
     
 ## 3. Match IDed blocks to master list
@@ -114,18 +114,18 @@ library(rgdal)
   cb_ca <- rbind(cb, ca)
     cb_ca <- cb_ca[, c('Source', 'block_ID', 'Porcupine.Presence', 'id_by', 'Notes')]
     colnames(cb_ca) <- c('Study', 'SAMPLEUNIT', 'Porcupine', 'id_by', 'Notes')
-  
+    cb_ca <- cb_ca[!is.na(cb_ca$SAMPLEUNIT),]
+    
       ided_stirling <- cb_ca[cb_ca$Study == 'Stirling',]
-        ## remove row 69? (blank) -- or will it just disappear when not matched?
-      
+        
       ided_s_or <- cb_ca[cb_ca$Study != 'Stirling',]
         ided_s_or$Study <- 'OR_Southern'
         ided_s_or$SAMPLEUNIT_full <- ided_s_or$SAMPLEUNIT
         ided_s_or$SAMPLEUNIT <-  substr(ided_s_or$SAMPLEUNIT_full, 6, 9)
-        ## remove row 76? (blank) -- or will it just disappear when not matched?    
         
       all_ided <- bind_rows(ided_klamath, ided_OR_coast, ided_s_or, ided_stirling)
       
+      nrow(all_ided) #Claire/Jeremy/Cara IDed 254 for porcupine y/n
       
   ## how many blocks on master list were IDed by crew for chewing/no?
       
@@ -133,12 +133,12 @@ library(rgdal)
     table(all_blocks$AnyChew, useNA = 'always')  # 38 false, 29 true (so 67 IDed) - Stirling only
       
       ## overall, 138 were IDed by crews (either porcupine y/n or any chewing y/n)
-      ## and Claire/Jeremy/Cara IDed  257 for porcupine y/n
+      ## and Claire/Jeremy/Cara IDed  254 for porcupine y/n
     
   ## how many were deployed / IDed by study area?
     
-    table(all_blocks$Study, useNA = 'always') # 85 Klamath, 80 OR_coast, 83 Southern, 74 Stirling
-    table(all_ided$Study, useNA = 'always')   # 85 Klamath, 77 OR_Coast, 26 Southern, 68 Stirling
+    table(all_blocks$Study, useNA = 'always') # deployed: 85 Klamath, 80 OR_coast, 83 Southern, 74 Stirling
+    table(all_ided$Study, useNA = 'always')   # IDed: 85 Klamath, 77 OR_Coast, 25 Southern, 67 Stirling
     
   ## MATCH:
     
@@ -151,7 +151,7 @@ library(rgdal)
     
     unique(all_ided$SAMPLEUNIT) #230 unique
     class(all_ided$SAMPLEUNIT)
-    all_ided$SAMPLEUNIT <- make.unique(all_ided$SAMPLEUNIT, sep = '_') #now 257 unique, good!
+    all_ided$SAMPLEUNIT <- make.unique(all_ided$SAMPLEUNIT, sep = '_') #now 254 unique, good!
     
   ## and merge:
     
@@ -161,22 +161,66 @@ library(rgdal)
     table(all_matched$id_by, useNA = 'always')
     table(all_matched$Study, useNA = 'always')  #Klamath 85, OR_coast 82, Southern 84, Stirling 75    
       
-    ## remove NAs:
+  ## Summary
+    nrow(all_matched) ## 2 stations had 2 blocks for some reason, hence 324 instead of 322
+    table(all_matched$Porcupine, useNA = 'always') ## and 70 un-IDed instead of 68
+
+    write.csv(all_matched, 'spreadsheets/all_blocks_matched_010919.csv')
+
     
-      all_matched <- all_matched[!is.na(all_matched$SAMPLEUNIT),]
     
-      table(all_matched$Porcupine, useNA = 'always')
+## 3B. Match up blocks to cameras
     
+    cameras <- gs_title('CamStations_180817')
+    cameras <- data.frame(gs_read(ss = cameras, ws = 'CamStations_180817', is.na(TRUE), range = cell_cols(1:19)))
     
+    cameras$SAMPLEUNIT <- substr(cameras$site, 6, 9)
+    
+
+      
+      
+## *** SCRATCH ALL OF STEP 4... CREWS DIDN'T HAVE TRAINING AND ONLY 22 WERE EXAMINED FOR 
+## *** ERDO BY BOTH SO IT DOESN'T MAKE SENSE TO COMPARE.
+    
+  
 ## 4. Calculate agreement
+    
+    nrow(all_matched) ## total blocks = 324
       
-    ## remove ones that weren't IDed now
+    ## blocks that were not examined at all = 20
+    ## **THESE WERE PRESUMABLY NOT COLLECTED**
+        nrow(all_matched[is.na(all_matched$ERDOchew) & is.na(all_matched$AnyChew) &
+                           is.na(all_matched$Porcupine),])
+    
+    ## blocks that were examined by both crews AND 2nd observers = 88
+        nrow(all_matched[(!is.na(all_matched$ERDOchew) | !is.na(all_matched$AnyChew)) & 
+                           !is.na(all_matched$Porcupine),])
+        
+    ## blocks that were examined by crews but NOT by 2nd observers = 50
+    ## **THESE NEVER MADE IT TO JEREMY/CLAIRE**
+        nrow(all_matched[(!is.na(all_matched$ERDOchew) | !is.na(all_matched$AnyChew)) & 
+                            is.na(all_matched$Porcupine),])
+    
+    ## blocks that were examined by 2nd observers but NOT by crews  = 166 
+        nrow(all_matched[is.na(all_matched$ERDOchew) & is.na(all_matched$AnyChew) &
+                           !is.na(all_matched$Porcupine),])
+    
+     20+88+50+166 ## good, this adds up to the total number of blocks (324)
+
+     88+50+166 ## this is the number that were presumably collected
+
+    ## the extra 2 were from the OR coast
+     table(all_matched$Study, useNA = 'always') ## Klamath 85, Coast 82, Southern 83, Stirling 74
       
-      all_matched_ids <- all_matched[!is.na(all_matched$Porcupine),] #or could use column 'id_by'
+    
+  #################
+     
+    ## remove ones that weren't collected now (there should be 304 left):
+      
+      all_matched_ids <- all_matched[!is.na(all_matched$ERDOchew) | !is.na(all_matched$AnyChew) |
+                                       !is.na(all_matched$Porcupine),]
         nrow(all_matched_ids)    
         
-        table(all_matched_ids$Porcupine) #of 255 IDed & matched with master: 215=no porc, 40=porc
-
     ## make sure columns are all 0/1/NA 
     ## (columns 'ERDOchew' and 'AnyChew' are from crews; 'Porcupine' is from Jeremy/Claire/Cara)
         
@@ -184,59 +228,72 @@ library(rgdal)
           all_matched_ids$ERDOchew_obs1[all_matched_ids$ERDOchew == 'TRUE'] <- 1
           all_matched_ids$ERDOchew_obs1[all_matched_ids$ERDOchew == 'FALSE'] <- 0
 
-          
         all_matched_ids$ERDOchew_obs2 <- all_matched_ids$Porcupine #already 0/1
     
         all_matched_ids$ANYchew_obs1 <- NA 
           all_matched_ids$ANYchew_obs1[all_matched_ids$ERDOchew == 'TRUE' | all_matched_ids$AnyChew == 'TRUE'] <- 1  
           all_matched_ids$ANYchew_obs1[all_matched_ids$ERDOchew == 'FALSE' | all_matched_ids$AnyChew == 'FALSE'] <- 0
         
-        all_matched_ids$ANYchew_obs2 <- all_matched_ids$Porcupine
+        all_matched_ids$ANYchew_obs2 <- all_matched_ids$Porcupine #already 0/1
           
     ## simplify dataframe
         
-        all_matched_ids <- all_matched_ids[, c(1,2,4,11,14:17)]
-        
+        all_matched_ids <- all_matched_ids[, c(1,2,11,14:17)]
         
     ## add columns for agreement (ERDO chewing)
         
-        all_matched_ids$ERDO_1_agree <- 0
-        all_matched_ids$ERDO_0_agree <- 0
+        all_matched_ids$ERDO_1_agree <- NA
           all_matched_ids$ERDO_1_agree[all_matched_ids$ERDOchew_obs1 == 1 & all_matched_ids$ERDOchew_obs2 == 1] <- 1
-          all_matched_ids$ERDO_1_agree[is.na(all_matched_ids$ERDOchew_obs1)] <- NA
+          all_matched_ids$ERDO_1_agree[all_matched_ids$ERDOchew_obs1 == 1 & all_matched_ids$ERDOchew_obs2 == 0] <- 0
+          all_matched_ids$ERDO_1_agree[all_matched_ids$ERDOchew_obs1 == 0 & all_matched_ids$ERDOchew_obs2 == 1] <- 0
+        all_matched_ids$ERDO_0_agree <- NA  
           all_matched_ids$ERDO_0_agree[all_matched_ids$ERDOchew_obs1 == 0 & all_matched_ids$ERDOchew_obs2 == 0] <- 1
-          all_matched_ids$ERDO_0_agree[is.na(all_matched_ids$ERDOchew_obs1)] <- NA
+          all_matched_ids$ERDO_0_agree[all_matched_ids$ERDOchew_obs1 == 0 & all_matched_ids$ERDOchew_obs2 == 1] <- 0
+          all_matched_ids$ERDO_0_agree[all_matched_ids$ERDOchew_obs1 == 1 & all_matched_ids$ERDOchew_obs2 == 0] <- 0
           
-      ## how many were examined for ERDO chewing by BOTH observers?
-        table(all_matched_ids$ERDOchew_obs1, useNA = 'always') ## 22 blocks (18+4)
+        all_matched_ids$ANY_1_agree <- NA
+          all_matched_ids$ANY_1_agree[all_matched_ids$ANYchew_obs1 == 1 & all_matched_ids$ANYchew_obs2 == 1] <- 1
+          all_matched_ids$ANY_1_agree[all_matched_ids$ANYchew_obs1 == 1 & all_matched_ids$ANYchew_obs2 == 0] <- 0
+          all_matched_ids$ANY_1_agree[all_matched_ids$ANYchew_obs1 == 0 & all_matched_ids$ANYchew_obs2 == 1] <- 0
+        all_matched_ids$ANY_0_agree <- NA
+          all_matched_ids$ANY_0_agree[all_matched_ids$ANYchew_obs1 == 0 & all_matched_ids$ANYchew_obs2 == 0] <- 1
+          all_matched_ids$ANY_0_agree[all_matched_ids$ANYchew_obs1 == 0 & all_matched_ids$ANYchew_obs2 == 1] <- 0
+          all_matched_ids$ANY_0_agree[all_matched_ids$ANYchew_obs1 == 1 & all_matched_ids$ANYchew_obs2 == 0] <- 0
+  
+    ################
           
-        ## of those 22 blocks:
-        table(all_matched_ids$ERDO_1_agree, useNA = 'always') # agree on porcupine = 3 blocks (14%)
-        table(all_matched_ids$ERDO_0_agree, useNA = 'always') # agree on no porcupine = 11 blocks (50%)
-                                                              # disagree = 8 (36%)
+    ## how many were examined for ERDO chewing by BOTH observers? (not just any chewing)
+          
+      nrow(all_matched_ids[!is.na(all_matched_ids$ERDOchew_obs1) & !is.na(all_matched_ids$ERDOchew_obs2),])
+          
+      ## of those 22 blocks:
+        table(all_matched_ids$ERDO_1_agree, useNA = 'always') 
+          # agree on porcupine = 3 blocks (14%) 
+          # [8 additional blocks were classified as ERDO by 1 of the observers]
+        table(all_matched_ids$ERDO_0_agree, useNA = 'always') 
+          # agree on no porcupine = 11 blocks (50%)
+          # [8 additional blocks were classified as NO ERDO by 1 of the observers]
+        
         ## overall agreement 64%, disagreement 36%
 
         
-    ## add columns for agreement (ERDO chewing)
-    
-          all_matched_ids$ANY_1_agree <- 0
-          all_matched_ids$ANY_0_agree <- 0    
-            all_matched_ids$ANY_1_agree[all_matched_ids$ANYchew_obs1 == 1 & all_matched_ids$ANYchew_obs2 == 1] <- 1
-            all_matched_ids$ANY_1_agree[is.na(all_matched_ids$ANYchew_obs1)] <- NA
-            all_matched_ids$ANY_0_agree[all_matched_ids$ANYchew_obs1 == 0 & all_matched_ids$ANYchew_obs2 == 0] <- 1
-            all_matched_ids$ANY_0_agree[is.na(all_matched_ids$ANYchew_obs1)] <- NA
-          
-      ## how many were examined for ANY chewing by BOTH observers?
-        table(all_matched_ids$ANYchew_obs1, useNA = 'always') ## 88 blocks (56+32)
+    ##############
         
-          ## of those 88 blocks:
-          table(all_matched_ids$ANY_1_agree, useNA = 'always') # agree on chewing = 11 blocks (13%)
-          table(all_matched_ids$ANY_0_agree, useNA = 'always') # agree on no chewing = 44 blocks (50%)
-                                                               # disagree = 33 (37)
+    ## how many were examined for ANY chewing by BOTH observers?
+        
+        nrow(all_matched_ids[!is.na(all_matched_ids$ANYchew_obs1) & !is.na(all_matched_ids$ANYchew_obs2),])
+        
+       ## of those 88 blocks:
+          table(all_matched_ids$ANY_1_agree, useNA = 'always') 
+            # agree on chewing = 11 blocks (13%)
+            # [33 additional blocks were classified as chewed by 1 of the observers]
+          table(all_matched_ids$ANY_0_agree, useNA = 'always') 
+            # agree on no chewing = 44 blocks (50%)
+            # [33 additional blocks were classified as chewed by 1 of the observers]
+          
           ## overall agreement 63%, disagreement 37%
           
-    ## calculate Kappa    
-          ?kappa2  
+      ## calculate Kappa    
           
        kappa.ERDO <- kappa2(data.frame(all_matched_ids$ERDOchew_obs1, all_matched_ids$ERDOchew_obs2), 
                             weight = 'unweighted') ## 0.228
