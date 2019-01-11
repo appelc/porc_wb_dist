@@ -66,8 +66,6 @@ library(raster)
           
 
 ## 3. create binary habitat suitability polygon based on 90th and 95th percentiles
-          
-      ## we extracted raster values at wb locations & all other locations but not together
 
           nrow(porcs)
           
@@ -95,3 +93,53 @@ library(raster)
       ## 50%: 0.730
       ## 90%: 0.798
       ## 95%: 0.927
+          
+  ### 10/12/18
+          
+    ### now with historical (1981-2010) and recent (2012-2018) hab suitability rasters
+          
+       ## load habitat suitability rasters
+        suit_hist <- raster('C:/Users/Cara/Documents/__PORC_WB/Maxent_results/maxent_porc_101118_no_cat_1981-2010_FINAL/porc_suitability_101118_no_cat_1981to2010.tif')
+        suit_rec <- raster('C:/Users/Cara/Documents/__PORC_WB/Maxent_results/maxent_porc_101018_no_cat_2012-2018_FINAL/porc_suitability_101018_no_cat_2012to2018.tif')
+        
+    ## NEW: normalize each raster so that they're on the same scale
+        suit_hist_norm <- (suit_hist - suit_hist@data@min) / (suit_hist@data@max - suit_hist@data@min)
+        suit_rec_norm <- (suit_rec - suit_rec@data@min) / (suit_rec@data@max - suit_rec@data@min)
+        
+        writeRaster(suit_hist_norm, filename = 'C:/Users/Cara/Documents/__PORC_WB/Maxent_results/suit_hist_normal.tif',
+                    options = 'INTERLEAVE=BAND')
+        writeRaster(suit_rec_norm, filename = 'C:/Users/Cara/Documents/__PORC_WB/Maxent_results/suit_rec_normal.tif',
+                    options = 'INTERLEAVE=BAND')
+        
+    ## then subtract to create the change raster
+        change_raster <- suit_rec_norm - suit_hist_norm
+        writeRaster(change_raster, filename = 'C:/Users/Cara/Documents/__PORC_WB/Maxent_results/diff_raster_normal.tif', 
+                    options = 'INTERLEAVE=BAND')
+        
+      ## load occurrence records (OR/WA and northern CA):
+        porc_occur_hist <- readOGR(dsn = './shapefiles', layer = 'all_porc_locs_1981to2010')
+        porc_occur_rec <- readOGR(dsn = './shapefiles', layer = 'all_porc_locs_2012to2018')
+        
+      ## (REDO FROM HERE ON W/ NEW NORMALIZED RASTERS...)  
+      ## extract habitat suitability at locations (NEW: from the standardized rasters)
+        porc_occur_hist$suitability <- extract(std_raster_hist, porc_occur_hist)
+        porc_occur_rec$suitability <- extract(std_raster_rec, porc_occur_rec)
+        
+      ## percentiles (HISTORICAL)
+        quantile(porc_occur_hist$suitability, probs = c(0.05, 0.1, 0.5, 0.9, 0.95), na.rm = TRUE)
+        
+        ## 5%: 0.5167236 / 4.819978e-07 ** this means 95% of porcupine locations are included above this 
+        ## 10%: 0.5343892 / 4.984762e-07
+        ## 50%: 0.6629255 / 6.183743e-07
+        ## 90%: 0.7610195 / 7.098761e-07
+        ## 95%: 0.7723016 / 7.204000e-07
+        ## (raw / normalized)
+        
+      ## percentiles (RECENT)
+        quantile(porc_occur_rec$suitability, probs = c(0.05, 0.1, 0.5, 0.9, 0.95), na.rm = TRUE)
+
+        ## 5%: 0.4325066 / 7.384362e-07
+        ## 10%: 0.4407008 / 7.524264e-07
+        ## 50%: 0.7297165 / 1.245875e-06
+        ## 90%: 0.7979165 / 1.362315e-06
+        ## 95%: 0.9268353 / 1.582424e-06

@@ -8,7 +8,8 @@
 # 5. NRM/NRIS (US Forest Service)
 # 6. BISON (USGS) *skip*
 # 7. Conservation Northwest CWMP
-# 8. GBIF
+# 8. NPS (Olympic NP)
+# 9. GBIF
 
 library(googlesheets)
 library(rgdal) 
@@ -366,8 +367,47 @@ library(extrafont) ## for ggplot2
   ## and 2 detections at other cameras
       
 #######################################################
+
+## 8. load National Park Service data (so far just from Olympic NP, via Patti Happe)
       
-## 8. load GBIF
+      gs_ls()
+      nps <- gs_title('NPS_porc_data')
+      
+      nps <- data.frame(gs_read(ss=nps, ws='Olympic_NP', is.na(TRUE), range=cell_cols(1:12)))
+      colnames(nps) <- c('date', 'general habitat', 'specific habitat', 'count', 'age', 'sex', 
+                         'observation method', 'comments', 'comments2', 'lat', 'lon', 'coord error')
+      
+      ## format date, etc.  
+      nps$date <- as.POSIXct(strptime(nps$date, '%m/%d/%y'), tz = 'America/Los_Angeles')
+      nps$year <- year(nps$date)
+      
+      nps$source <- rep('nps', nrow(nps))
+      nps$id <- paste('nps', 1:nrow(nps), sep = '')
+      nps$type <- rep('camera', nrow(nps))
+      
+      ## add decade
+      nps$decade <- paste((nps$year - nps$year %% 10), 's', sep = '')
+      
+      ## reorder columns
+      nps <- nps[,c(10:12, 4, 9, 13, 6:7, 2, 1, 3, 5, 8)]
+      
+      ## create SPDF, plot, export
+      nps.spdf <- SpatialPointsDataFrame(data.frame(nps$lon, nps$lat), data = data.frame(nps))
+      nps.spdf@proj4string <- aoi@proj4string                                     
+      
+      plot(aoi)
+      points(nps.spdf)
+      
+      writeOGR(nps.spdf, dsn = '.', layer = 'shapefiles/observations/nps_cleaned_060618', driver = 'ESRI Shapefile')
+      write.csv(nps.spdf@data, 'spreadsheets/nps_cleaned_060618.csv')
+      
+      ## these 5 records include 3 detections at the same camera from different dates (within ~3 months)
+      ## and 2 detections at other cameras
+      
+      
+#######################################################
+
+## 9. load GBIF
       
     ## download ERDO occurrences from GBIF
       
@@ -457,7 +497,7 @@ library(extrafont) ## for ggplot2
       
 ## Combine all into one dataframe
 
-    occur <- bind_rows(gbif.pts, nrm, orbic, wsdot, odot, misc, cwmp) #order in which I want to keep if duplicates
+    occur <- bind_rows(gbif.pts, nrm, orbic, wsdot, odot, misc, cwmp, nps) #order in which I want to keep if duplicates
     nrow(occur)
     
     table(occur$source)

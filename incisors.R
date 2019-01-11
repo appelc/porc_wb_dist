@@ -62,6 +62,8 @@ spec_plot
 
 ## averages
 
+## DOUBLE CHECK: does this correctly separate ERDO/MYCO?
+
 head(melted_w)
 
 melted_w_erdo <- melted_w[melted_w$species == 'E. dorsatum',]
